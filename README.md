@@ -1,36 +1,53 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Ximverse
 
-## Getting Started
+One platform for exporters, importers, customs house agents and freight forwarders.
 
-First, run the development server:
+Production: https://ximverse.ai (GitHub → Vercel → ximverse.ai)
+
+## Stack
+
+Next.js (App Router) · React · TypeScript · Tailwind CSS · lucide-react
+
+## Run locally
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm install
+npm run dev        # http://localhost:3000
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+No environment variables are required for local development. To override any
+defaults, copy `.env.example` to `.env.local`.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Other scripts:
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```bash
+npm run lint
+npm run build      # production build — run this before pushing
+npm run start      # serve the production build locally
+```
 
-## Learn More
+## Configuration
 
-To learn more about Next.js, take a look at the following resources:
+All environment-specific values are read in [`src/lib/config.ts`](src/lib/config.ts)
+and documented in [`.env.example`](.env.example).
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+| Variable | Purpose | Production value |
+|---|---|---|
+| `NEXT_PUBLIC_SITE_URL` | Public origin, used for canonical and social-preview URLs | `https://ximverse.ai` |
+| `NEXT_PUBLIC_API_BASE_URL` | Where API calls go. Unset means same-origin `/api` | unset for now |
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+When `NEXT_PUBLIC_SITE_URL` is unset, the site URL falls back to the Vercel
+deployment URL on Vercel (so previews point at themselves), then to
+`http://localhost:3000` locally.
 
-## Deploy on Vercel
+## Project layout
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+```
+src/
+  app/                 routes, root layout, global styles
+  components/          UI components
+  lib/
+    config.ts          environment configuration
+    api.ts             apiFetch() — the single place backend calls will go through
+    roles.ts           the four stakeholder roles
+```

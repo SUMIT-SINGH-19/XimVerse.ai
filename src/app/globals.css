@@ -1,26 +1,57 @@
 @import "tailwindcss";
 
+/*
+ * Brand palette, taken from the Ximverse logo:
+ *   rust orange  — the "X", "im" and the lower half of the planet
+ *   deep teal    — "verse" and the upper half of the planet
+ */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --canvas: #f3f2ef;
+  --surface: #ffffff;
+  --ink: #0b2e30;
+  --ink-muted: #4d5f60;
+  --ink-faint: #93a1a1;
+  --line: #e2e0da;
+  --teal: #0b4547;
+  --teal-soft: #e3eeee;
+  --orange: #d0583a;
+  --orange-soft: #fbe9e3;
+  --on-brand: #ffffff;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+    --canvas: #071c1d;
+    --surface: #0d2a2c;
+    --ink: #eef3f2;
+    --ink-muted: #a3b6b5;
+    --ink-faint: #5f7b7b;
+    --line: #1b3c3e;
+    --teal: #3f9b98;
+    --teal-soft: #123638;
+    --orange: #e8714f;
+    --orange-soft: #3a2119;
+    --on-brand: #ffffff;
   }
 }
 
+@theme inline {
+  --color-canvas: var(--canvas);
+  --color-surface: var(--surface);
+  --color-ink: var(--ink);
+  --color-ink-muted: var(--ink-muted);
+  --color-ink-faint: var(--ink-faint);
+  --color-line: var(--line);
+  --color-teal: var(--teal);
+  --color-teal-soft: var(--teal-soft);
+  --color-orange: var(--orange);
+  --color-orange-soft: var(--orange-soft);
+  --color-on-brand: var(--on-brand);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--canvas);
+  color: var(--ink);
 }

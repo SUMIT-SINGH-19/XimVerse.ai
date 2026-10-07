@@ -1,1 +1,2 @@
 @AGENTS.md
+@docs/PROJECT_CONTEXT.md

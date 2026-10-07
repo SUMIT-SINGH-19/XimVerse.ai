@@ -7,6 +7,8 @@ export interface Role {
   title: string;
   description: string;
   icon: LucideIcon;
+  /** Where "Continue" leads; roles without a workspace yet have none. */
+  href?: string;
 }
 
 /** The four stakeholders shown on the role-selection screen, in display order. */
@@ -22,12 +24,14 @@ export const ROLES: readonly Role[] = [
     title: "Importer",
     description: "Buy from overseas suppliers and track inbound cargo through clearance.",
     icon: Globe2,
+    href: "/importer",
   },
   {
     slug: "cha",
     title: "CHA – Customs House Agent",
     description: "File customs entries and clear consignments on behalf of your clients.",
     icon: FileCheck2,
+    href: "/cha",
   },
   {
     slug: "freight-forwarder",

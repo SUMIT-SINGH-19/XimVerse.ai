@@ -1,15 +1,22 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { ArrowRight, Check } from "lucide-react";
 import { ROLES, type RoleSlug } from "@/lib/roles";
 
 const focusRing =
   "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange focus-visible:ring-offset-2 focus-visible:ring-offset-canvas";
 
+const continueClass = `inline-flex h-14 items-center gap-2 rounded-xl bg-orange px-7 text-base font-semibold text-on-brand transition
+  hover:brightness-95 disabled:cursor-not-allowed disabled:opacity-40 ${focusRing}`;
+
 export function RolePicker() {
   const [selected, setSelected] = useState<RoleSlug | null>(null);
   const selectedRole = ROLES.find((r) => r.slug === selected);
+  const continueLabel = selectedRole
+    ? `Continue as ${selectedRole.title.split(" –")[0]}`
+    : "Continue";
 
   return (
     <div className="w-full">
@@ -65,15 +72,17 @@ export function RolePicker() {
       </div>
 
       <div className="mt-8 flex flex-col items-start gap-3 sm:flex-row sm:items-center">
-        <button
-          type="button"
-          disabled={!selectedRole}
-          className={`inline-flex h-14 items-center gap-2 rounded-xl bg-orange px-7 text-base font-semibold text-on-brand transition
-            hover:brightness-95 disabled:cursor-not-allowed disabled:opacity-40 ${focusRing}`}
-        >
-          {selectedRole ? `Continue as ${selectedRole.title.split(" –")[0]}` : "Continue"}
-          <ArrowRight className="size-5" aria-hidden />
-        </button>
+        {selectedRole?.href ? (
+          <Link href={selectedRole.href} className={continueClass}>
+            {continueLabel}
+            <ArrowRight className="size-5" aria-hidden />
+          </Link>
+        ) : (
+          <button type="button" disabled={!selectedRole} className={continueClass}>
+            {continueLabel}
+            <ArrowRight className="size-5" aria-hidden />
+          </button>
+        )}
         {!selectedRole && (
           <p className="text-sm text-ink-muted">Select a role to continue.</p>
         )}

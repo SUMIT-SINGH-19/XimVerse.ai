@@ -108,8 +108,8 @@ export function WorkQueue({
         <p className="px-6 py-10 text-center text-sm text-ink-muted">No shipments match this filter.</p>
       ) : (
         <>
-          {/* Tablet and up: table, scrolling sideways if the column is narrow. */}
-          <div className="mt-3 hidden overflow-x-auto pb-2 md:block">
+          {/* Wide screens: table, scrolling sideways if ever squeezed. */}
+          <div className="mt-3 hidden overflow-x-auto pb-2 xl:block">
             <table className="w-full min-w-[46rem] text-left text-sm">
               <thead>
                 <tr className="border-y border-line bg-canvas/60 text-xs font-medium text-ink-muted">
@@ -166,13 +166,13 @@ export function WorkQueue({
             </table>
           </div>
 
-          {/* Phones: shipment cards */}
-          <ul className="mt-3 space-y-3 px-5 pb-5 sm:px-6 md:hidden">
+          {/* Phones and tablets: shipment cards */}
+          <ul className="mt-3 grid grid-cols-1 gap-3 px-5 pb-5 sm:px-6 md:grid-cols-2 xl:hidden">
             {rows.map((s) => (
               <li key={s.id}>
                 <Link
                   href={SHIPMENTS_HREF}
-                  className={`block rounded-xl border border-line p-4 transition hover:border-teal/40 hover:bg-teal-soft/40 ${focusRing}`}
+                  className={`block h-full rounded-xl border border-line p-4 transition hover:border-teal/40 hover:bg-teal-soft/40 ${focusRing}`}
                 >
                   <span className="flex items-start justify-between gap-3">
                     <span className="min-w-0">

@@ -604,7 +604,7 @@ const MOCK_DASHBOARD: ChaDashboardData = {
       shipmentId: "XIM-EXP-1042",
       kind: "declaration",
       status: "draft",
-      nextAction: "Complete After Invoice Fix",
+      nextAction: "Finish Draft",
     },
     {
       id: "fil-6",

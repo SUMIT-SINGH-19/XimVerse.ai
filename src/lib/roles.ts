@@ -18,6 +18,7 @@ export const ROLES: readonly Role[] = [
     title: "Exporter",
     description: "Sell goods abroad and manage shipments, buyers and export documents.",
     icon: Ship,
+    href: "/exporter",
   },
   {
     slug: "importer",
@@ -38,5 +39,6 @@ export const ROLES: readonly Role[] = [
     title: "Freight Forwarder",
     description: "Quote, book and move cargo across sea, air and road for shippers.",
     icon: Truck,
+    href: "/freight-forwarder",
   },
 ];

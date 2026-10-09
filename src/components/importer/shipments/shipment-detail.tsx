@@ -444,6 +444,12 @@ function RouteAndSchedule({ sh, st, onMessage }: { sh: Shipment; st: ShipmentSta
         )}
         {editing && (
           <form
+            onKeyDown={(e) => {
+              if (e.key === "Escape") {
+                setEditing(false);
+                setError("");
+              }
+            }}
             className="mt-4 grid grid-cols-1 gap-3 rounded-xl border border-line p-4 sm:grid-cols-3"
             onSubmit={(e) => {
               e.preventDefault();
@@ -579,6 +585,9 @@ function Freight({ sh, st, onMessage }: { sh: Shipment; st: ShipmentState; onMes
               </button>
             ) : (
               <form
+                onKeyDown={(e) => {
+                  if (e.key === "Escape") setOpen(false);
+                }}
                 className="space-y-2 rounded-xl border border-line p-3"
                 onSubmit={(e) => {
                   e.preventDefault();

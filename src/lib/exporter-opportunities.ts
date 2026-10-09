@@ -867,6 +867,91 @@ export const BUYER_OPPORTUNITIES: readonly BuyerOpportunity[] = [
       reasons: [strength("product", "Exact product match"), gap("destination", "No prior destination experience")],
     },
   },
+  {
+    // Historical: quoted and accepted directly, no negotiation (see QT-2026-8132).
+    rfqId: "DEMO-RFQ-0983",
+    opportunityId: "OPP-2026-0241",
+    rfqStatus: "supplier-selected",
+    status: "closed",
+    rfqPublishedAt: "2026-08-18T06:00:00Z",
+    matchedAt: "2026-08-18T09:00:00Z",
+    sharedAt: "2026-08-18T10:00:00Z",
+    quotesDueAt: "2026-08-25T12:00:00Z",
+    product: {
+      name: "1121 Golden Sella Basmati Rice",
+      category: FOOD,
+      specification: "Golden sella, average grain length 8.30 mm min, broken 1% max.",
+      specificationItems: [
+        { label: "Variety", value: "1121" },
+        { label: "Processing", value: "Golden Sella" },
+        { label: "Broken Grain", value: "Max 1%" },
+      ],
+      hsCode: RICE_HS,
+    },
+    quantity: { amount: 150, unit: "MT" },
+    delivery: {
+      destinationCountry: "Qatar",
+      destinationLocation: "Hamad Port, Qatar",
+      requiredBy: "2026-10-20",
+      incoterm: { term: "CIF", namedPlace: "Hamad Port, Qatar" },
+    },
+    commercial: { paymentTerms: "lc", paymentNotes: "LC at sight." },
+    quality: { packaging: "25 kg PP bags." },
+    compliance: {
+      standingCredentials: [APEDA, FSSAI],
+      shipmentDocuments: [doc("Certificate of Origin"), doc("Phytosanitary Certificate"), doc("Fumigation Certificate", "needs-action")],
+    },
+    extendedTerms: { currency: "USD", quoteValidityDays: 7 },
+    supplierRequirements: MANUFACTURER_PREFERRED,
+    buyer: { country: "Qatar", region: "Middle East", industry: "Food importer / distributor" },
+    match: {
+      score: 93,
+      matchedProductId: "rice-1121-golden-sella",
+      reasons: [strength("product", "Exact product match"), strength("destination", "Destination experience: Qatar")],
+    },
+  },
+  {
+    // Historical: quoted and accepted directly, no negotiation (see QT-2026-8126).
+    rfqId: "DEMO-RFQ-0979",
+    opportunityId: "OPP-2026-0236",
+    rfqStatus: "supplier-selected",
+    status: "closed",
+    rfqPublishedAt: "2026-08-12T06:00:00Z",
+    matchedAt: "2026-08-12T08:30:00Z",
+    sharedAt: "2026-08-12T09:15:00Z",
+    quotesDueAt: "2026-08-19T12:00:00Z",
+    product: {
+      name: "Organic Coconut",
+      category: FOOD,
+      specification: "Desiccated coconut, fine grade, fat 63% min. EU organic.",
+      specificationItems: [
+        { label: "Form", value: "Desiccated, fine grade" },
+        { label: "Fat Content", value: "Min 63%" },
+      ],
+      hsCode: "0801.19",
+    },
+    quantity: { amount: 40, unit: "MT" },
+    delivery: {
+      destinationCountry: "Netherlands",
+      destinationLocation: "Rotterdam, Netherlands",
+      requiredBy: "2026-10-25",
+      incoterm: { term: "CIF", namedPlace: "Rotterdam, Netherlands" },
+    },
+    commercial: { paymentTerms: "dp" },
+    quality: { packaging: "25 kg paper bags with PE liner." },
+    compliance: {
+      standingCredentials: [standing("EU Organic", "organic", "buyer")],
+      shipmentDocuments: [doc("Health Certificate", "required"), doc("Phytosanitary Certificate")],
+    },
+    extendedTerms: { currency: "EUR" },
+    supplierRequirements: ANY_SUPPLIER,
+    buyer: { country: "Netherlands", region: "Europe", industry: "Food manufacturing" },
+    match: {
+      score: 80,
+      matchedProductId: "coconut-organic",
+      reasons: [strength("product", "Product category match"), gap("certification", "Organic certification pending verification")],
+    },
+  },
 ];
 
 export const SUMIT_OPPORTUNITIES_INSIGHT =

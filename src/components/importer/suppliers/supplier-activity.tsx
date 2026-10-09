@@ -16,11 +16,15 @@ import { focusRing } from "../styles";
 import { formatOrderValue, orderStatus } from "@/lib/importer-orders";
 import { useOrders } from "../orders/order-store";
 import { OrderStatusBadge } from "../orders/order-ui";
+import { shipmentState } from "@/lib/importer-shipments";
+import { useShipments } from "../shipments/shipment-store";
+import { ShipmentStatusBadge } from "../shipments/shipment-ui";
 
 /** The importer's quotation history with a supplier, derived from the quotation data. */
 export function SupplierActivity({ supplierId }: { supplierId: string }) {
   const statusOf = useQuotationStatus();
   const quotes = quotationsFromSupplier(supplierId);
+  const shipments = useShipments().filter((s) => s.supplierId === supplierId);
   const orders = useOrders()
     .filter((o) => o.supplierId === supplierId)
     .toSorted((a, b) => b.purchaseOrder.issueDate.localeCompare(a.purchaseOrder.issueDate));
@@ -97,6 +101,29 @@ export function SupplierActivity({ supplierId }: { supplierId: string }) {
                   <p className="mt-0.5 text-xs text-ink-faint">Ordered {formatDate(o.purchaseOrder.issueDate)}</p>
                 </li>
               ))}
+            </ul>
+          </div>
+        )}
+        {shipments.length > 0 && (
+          <div className="mt-4 border-t border-line pt-4">
+            <h3 className="text-xs font-semibold uppercase tracking-[0.12em] text-ink-muted">Shipments</h3>
+            <ul className="mt-2 divide-y divide-line">
+              {shipments.map((s) => {
+                const st = shipmentState(s);
+                return (
+                  <li key={s.id} className="py-3">
+                    <div className="flex items-start justify-between gap-2">
+                      <Link href={importerHref(`shipments/${s.id}`)} className={`rounded font-semibold text-ink hover:text-teal ${focusRing}`}>
+                        <ImportId id={s.id} />
+                      </Link>
+                      <ShipmentStatusBadge status={st.status} />
+                    </div>
+                    <p className="mt-1 text-sm text-ink-muted">{s.cargo.product}</p>
+                    <p className="mt-0.5 text-sm text-ink">{s.route.portOfLoading} → {s.route.portOfDischarge}</p>
+                    <p className="mt-0.5 text-xs text-ink-faint">ETA {formatDate(st.schedule.eta)} (planned)</p>
+                  </li>
+                );
+              })}
             </ul>
           </div>
         )}

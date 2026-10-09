@@ -23,6 +23,9 @@ import { supplierHref } from "../suppliers/supplier-links";
 import { focusRing, ghostButton, primaryButton, secondaryButton } from "../styles";
 import { cancelOrder, markPoIssued, moveToPreShipment, simulateSupplierConfirmation, useOrders, useOrdersLoaded } from "./order-store";
 import { OrderStatusBadge, ReadinessBadge } from "./order-ui";
+import { shipmentForOrder, shipmentState, shipmentStatusLabel } from "@/lib/importer-shipments";
+import { useShipments } from "../shipments/shipment-store";
+import { OrderShipmentPanel } from "../shipments/shipment-ui";
 
 const backLink = `inline-flex items-center gap-1.5 rounded-md text-sm font-medium text-ink-muted hover:text-teal ${focusRing}`;
 const textLink = `inline-flex items-center gap-1 rounded text-sm font-semibold text-teal hover:underline ${focusRing}`;
@@ -64,6 +67,7 @@ function Workspace({ o }: { o: Order }) {
   const [cancelling, setCancelling] = useState(false);
   const [reason, setReason] = useState("");
   const confirmation = o.events.find((e) => e.type === "supplier-confirmed");
+  const shipment = shipmentForOrder(o.id, useShipments());
 
   return (
     <div className="space-y-6">
@@ -101,7 +105,9 @@ function Workspace({ o }: { o: Order }) {
         </div>
       </div>
 
-      <Lifecycle status={status} />
+      <Lifecycle status={status} shipmentLabel={shipment ? `${shipment.id} · ${shipmentStatusLabel(shipmentState(shipment).status)}` : undefined} />
+
+      <OrderShipmentPanel order={o} />
 
       <NextActions
         status={status}
@@ -331,7 +337,7 @@ function stageState(status: OrderStatus, stage: (typeof STAGES)[number]["id"]): 
   return "upcoming";
 }
 
-function Lifecycle({ status }: { status: OrderStatus }) {
+function Lifecycle({ status, shipmentLabel }: { status: OrderStatus; shipmentLabel?: string }) {
   return (
     <section aria-labelledby="lifecycle" className="rounded-2xl border border-line bg-surface px-5 py-4 sm:px-6">
       <h2 id="lifecycle" className="sr-only">Order lifecycle</h2>
@@ -364,7 +370,15 @@ function Lifecycle({ status }: { status: OrderStatus }) {
               <span className="text-sm">
                 <span className={state === "current" ? "font-semibold text-ink" : state === "done" ? "text-ink" : "text-ink-faint"}>{stage.label}</span>
                 <span className="block text-xs text-ink-faint">
-                  {state === "done" ? "Done" : state === "current" ? "Current stage" : state === "future" ? "Not built yet" : "Upcoming"}
+                  {stage.id === "shipment" && shipmentLabel
+                    ? shipmentLabel
+                    : state === "done"
+                      ? "Done"
+                      : state === "current"
+                        ? "Current stage"
+                        : state === "future"
+                          ? "Not started"
+                          : "Upcoming"}
                 </span>
               </span>
             </li>
@@ -414,7 +428,7 @@ function NextActions({
         {status === "pre-shipment" && (
           <p className="flex items-center gap-2 text-sm text-ink-muted">
             <Lock aria-hidden className="size-4" />
-            Shipment booking will be available in a later release.
+            Shipment planning and tracking continue in the Shipment workspace.
           </p>
         )}
         <button type="button" onClick={onCancel} className={`${ghostButton} sm:ml-auto`}>

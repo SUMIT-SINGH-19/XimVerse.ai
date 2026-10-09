@@ -11,7 +11,6 @@ import { findOpportunity, formatDateTime, PAYMENT_TERM_LABEL, shortCountry, UNIT
 import {
   COMPLIANCE_RESPONSE_LABEL,
   COST_COVERAGE_LABEL,
-  effectiveStatus,
   formatMoney,
   LOCAL_QUOTATION_ID,
   SEVERITY_ORDER,
@@ -19,11 +18,21 @@ import {
   type ExporterQuotation,
 } from "@/lib/exporter-quotations";
 import { useIsClient, useStoredQuotations } from "@/lib/exporter-quotation-store";
+import { useExporterNegotiations } from "@/lib/exporter-negotiation-store";
+import {
+  buyerLatestOffer,
+  formatOfferPrice,
+  negotiationForQuotation,
+  yourCurrentOffer,
+  type ExporterNegotiation,
+} from "@/lib/exporter-negotiations";
+import { presentedStatus } from "@/lib/exporter-quotation-pipeline";
 import { QuotationStatusPill } from "./quotation-ui";
 
 const money = (amount: number, q: ExporterQuotation) => formatMoney(Math.round(amount * 100), q.price.currency);
 
 const disabledAction = "inline-flex h-10 cursor-not-allowed items-center gap-2 rounded-lg border border-line px-4 text-sm font-semibold text-ink-faint";
+const linkAction = `inline-flex h-10 items-center gap-2 rounded-lg bg-orange px-4 text-sm font-semibold text-on-brand shadow-sm shadow-orange/20 transition hover:brightness-95 ${focusRing}`;
 
 function Banner({
   tone,
@@ -54,9 +63,12 @@ function Banner({
 }
 
 /** What the current status means and what (if anything) the exporter can do next. */
-function StatusContext({ q }: { q: ExporterQuotation }) {
-  const status = effectiveStatus(q);
+function StatusContext({ q, negotiation }: { q: ExporterQuotation; negotiation?: ExporterNegotiation }) {
+  const status = presentedStatus(q, negotiation);
   const f = q.feedback;
+  const buyer = negotiation && buyerLatestOffer(negotiation);
+  const yours = negotiation && yourCurrentOffer(negotiation);
+  const negHref = negotiation ? exporterHref(`negotiations/${negotiation.id}`) : undefined;
   const unit = UNIT_SHORT[q.price.pricingUnit];
   switch (status) {
     case "submitted":
@@ -81,41 +93,55 @@ function StatusContext({ q }: { q: ExporterQuotation }) {
       return (
         <Banner tone="attention" icon={MessageSquareWarning} title="Buyer / Ximverse requested changes">
           {f && <p className="rounded-lg bg-surface px-3 py-2">“{f.message}”</p>}
-          <div className="flex flex-wrap items-center gap-3">
-            <button type="button" disabled className={disabledAction}>Revise Quotation</button>
-            <span className="text-xs text-ink-muted">Revision editing arrives with the Negotiation feature.</span>
-          </div>
+          <p className="text-xs text-ink-muted">This quotation stays as submitted; revised terms are sent through the negotiation.</p>
+          {negHref && (
+            <Link href={negHref} className={linkAction}>
+              Review Revision Request
+            </Link>
+          )}
         </Banner>
       );
     case "negotiation":
       return (
         <Banner tone="attention" icon={Scale} title="Negotiation in progress">
-          {f?.message && <p>{f.message}</p>}
-          {f?.counterOffer && (
+          {(buyer || f?.counterOffer) && (
             <dl className="grid grid-cols-2 gap-3 rounded-lg bg-surface px-3 py-2">
               <div>
-                <dt className="text-xs text-ink-muted">Buyer requested</dt>
-                <dd className="font-semibold tabular-nums">{formatMoney(Math.round(f.counterOffer.unitPrice * 100), f.counterOffer.currency)} / {unit}</dd>
+                <dt className="text-xs text-ink-muted">Buyer latest</dt>
+                <dd className="font-semibold tabular-nums">
+                  {buyer ? formatOfferPrice(buyer) : `${formatMoney(Math.round(f!.counterOffer!.unitPrice * 100), f!.counterOffer!.currency)} / ${unit}`}
+                </dd>
               </div>
               <div>
-                <dt className="text-xs text-ink-muted">Your current quote</dt>
-                <dd className="font-semibold tabular-nums">{money(q.price.unitPrice, q)} / {unit}</dd>
+                <dt className="text-xs text-ink-muted">Your current offer</dt>
+                <dd className="font-semibold tabular-nums">{yours ? formatOfferPrice(yours) : `${money(q.price.unitPrice, q)} / ${unit}`}</dd>
               </div>
             </dl>
           )}
-          <div className="flex flex-wrap items-center gap-3">
-            <button type="button" disabled className={disabledAction}>Open Negotiation Room</button>
-            <span className="text-xs text-ink-muted">Demo context — the negotiation room is coming next.</span>
-          </div>
+          <p className="text-xs text-ink-muted">The submitted quotation below is unchanged; offers move in the negotiation.</p>
+          {negHref && (
+            <Link href={negHref} className={linkAction}>
+              Open Negotiation
+            </Link>
+          )}
         </Banner>
       );
     case "accepted":
       return (
         <Banner tone="positive" icon={PartyPopper} title="Offer Accepted">
-          <p>{f?.message ?? "The buyer selected your offer."} This quotation is ready to become a deal and order.</p>
+          <p>
+            {negotiation
+              ? `Agreed through negotiation at ${formatOfferPrice(yours!)}.`
+              : (f?.message ?? "The buyer selected your offer.")}{" "}
+            This quotation is ready to become a deal and order.
+          </p>
           <div className="flex flex-wrap items-center gap-3">
-            <button type="button" disabled className={disabledAction}>Set Up Deal</button>
-            <span className="text-xs text-ink-muted">Deal setup is coming next.</span>
+            <button type="button" disabled className={disabledAction}>Deal setup coming next</button>
+            {negHref && (
+              <Link href={negHref} className={`text-sm font-semibold text-teal hover:text-ink ${focusRing}`}>
+                View agreement
+              </Link>
+            )}
           </div>
         </Banner>
       );
@@ -139,7 +165,8 @@ function StatusContext({ q }: { q: ExporterQuotation }) {
 
 export function QuotationDetail({ q }: { q: ExporterQuotation }) {
   const o = findOpportunity(q.requirementId);
-  const status = effectiveStatus(q);
+  const negotiation = negotiationForQuotation(q.id, useExporterNegotiations());
+  const status = presentedStatus(q, negotiation);
   const validity = validityLabel(q);
   const unit = UNIT_SHORT[q.price.pricingUnit];
   const deviations = q.deviations.toSorted((a, b) => SEVERITY_ORDER[a.severity] - SEVERITY_ORDER[b.severity]);
@@ -181,7 +208,7 @@ export function QuotationDetail({ q }: { q: ExporterQuotation }) {
         </div>
       </header>
 
-      <StatusContext q={q} />
+      <StatusContext q={q} negotiation={negotiation} />
 
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
         <div className="min-w-0 space-y-6 xl:col-span-2">

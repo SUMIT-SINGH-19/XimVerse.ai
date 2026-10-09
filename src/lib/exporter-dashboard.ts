@@ -7,7 +7,8 @@
  * same shapes.
  */
 
-import { BUYER_OPPORTUNITIES, isOpen, opportunitySummary } from "./exporter-opportunities";
+import { BUYER_OPPORTUNITIES, isOpen, opportunitySummary, shortCountry } from "./exporter-opportunities";
+import { actionsRequired, isActiveOrder, orderState, readinessScore, SEEDED_ORDERS } from "./exporter-orders";
 import { buildPipeline, formatCompactMoney, pipelineSummary } from "./exporter-quotation-pipeline";
 import { dealStatus, dealValueMinor, isActiveDeal, SEEDED_DEALS } from "./exporter-deals";
 
@@ -52,33 +53,32 @@ const DEAL_VALUE_BY_CURRENCY = ACTIVE_DEALS.reduce<Record<string, number>>((acc,
 // Orders
 // ---------------------------------------------------------------------------
 
-/** Order stages, in sequence. */
-export const ORDER_STAGES = [
-  "Order Confirmed",
-  "Production",
-  "Documentation",
-  "Customs Clearance",
-  "Shipment",
-  "In Transit",
-  "Delivered",
-] as const;
-
-export type OrderStage = (typeof ORDER_STAGES)[number];
-
 export interface ActiveOrder {
   orderId: string;
   product: string;
   destinationCountry: string;
-  stage: OrderStage;
-  /** 0–100 overall completion. */
+  /** Execution stage label. */
+  stage: string;
+  /** 0–100 pre-shipment readiness. */
   progress: number;
 }
 
-export const ACTIVE_ORDERS: readonly ActiveOrder[] = [
-  { orderId: "ORD-XM-3021", product: "Basmati Rice", destinationCountry: "UAE", stage: "Documentation", progress: 65 },
-  { orderId: "ORD-XM-3018", product: "Rice", destinationCountry: "Saudi Arabia", stage: "Customs Clearance", progress: 82 },
-  { orderId: "ORD-XM-3012", product: "Coconut", destinationCountry: "Germany", stage: "Production", progress: 35 },
-];
+// Seeded orders only: the dashboard is prerendered, so orders created in this
+// browser show on the Orders page but not here.
+const SEEDED_ORDER_ROWS = SEEDED_ORDERS.map((o) => ({ o, s: orderState(o) })).filter((x) => isActiveOrder(x.s.status));
+
+export const ACTIVE_ORDERS: readonly ActiveOrder[] = SEEDED_ORDER_ROWS.map(({ o, s }) => {
+  const opp = BUYER_OPPORTUNITIES.find((x) => x.rfqId === o.requirementId);
+  return {
+    orderId: o.id,
+    product: o.terms.productName,
+    destinationCountry: opp ? shortCountry(opp.delivery.destinationCountry) : "—",
+    stage: s.stage,
+    progress: readinessScore(o, s),
+  };
+});
+
+const ORDERS_NEEDING_ACTION = SEEDED_ORDER_ROWS.filter(({ o, s }) => actionsRequired(o, s).length > 0).length;
 
 // ---------------------------------------------------------------------------
 // KPIs, actions and assistant prompts
@@ -123,7 +123,14 @@ export const EXPORTER_KPIS: readonly ExporterKpi[] = [
       .join(" · ") + " contract value",
     slug: "deals",
   },
-  { key: "orders", label: "Active Orders", value: "3", detail: "2 require action", emphasis: true, slug: "orders" },
+  {
+    key: "orders",
+    label: "Active Orders",
+    value: String(SEEDED_ORDER_ROWS.length),
+    detail: `${ORDERS_NEEDING_ACTION} require action`,
+    emphasis: ORDERS_NEEDING_ACTION > 0,
+    slug: "orders",
+  },
   { key: "revenue", label: "Revenue", value: "₹42.6L", detail: "This month", slug: "analytics" },
 ];
 

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowDown, ArrowLeft, CircleAlert, CircleCheck, Lock, PackagePlus, ShieldCheck, Sparkles } from "lucide-react";
+import { ArrowDown, ArrowLeft, CircleAlert, CircleCheck, Lock, ShieldCheck, Sparkles } from "lucide-react";
 import { focusRing } from "@/components/workspace/styles";
 import { exporterHref } from "@/lib/exporter-nav";
 import { formatDate } from "@/lib/exporter-dashboard";
@@ -19,6 +19,9 @@ import {
   type ExporterDeal,
 } from "@/lib/exporter-deals";
 import { confirmDeal, useExporterDeals } from "@/lib/exporter-deal-store";
+import { useExporterOrders } from "@/lib/exporter-order-store";
+import { orderForDeal } from "@/lib/exporter-orders";
+import { CreateOrderAction } from "@/components/exporter/orders/create-order";
 import { COMMITMENT_LABEL, DealStatusPill, qtyText, SourceBadge, unitPriceText, valueText } from "./deal-ui";
 
 function Card({ title, children, aside }: { title: string; children: React.ReactNode; aside?: React.ReactNode }) {
@@ -42,8 +45,9 @@ export function DealDetail({ d }: { d: ExporterDeal }) {
   const q: ExporterQuotation | undefined = SEEDED_QUOTATIONS.find((x) => x.id === d.quotationId) ?? local.find((x) => x.id === d.quotationId);
   const t = d.terms;
   const status = dealStatus(d);
-  const milestones = dealMilestones(d);
-  const readiness = dealReadiness(d);
+  const orderId = orderForDeal(d.id, useExporterOrders())?.id;
+  const milestones = dealMilestones(d, orderId);
+  const readiness = dealReadiness(d, orderId);
 
   // Original vs final: informational, only when directly comparable.
   const comparable = q && q.price.currency === t.currency && q.price.pricingUnit === t.quantity.unit;
@@ -105,10 +109,7 @@ export function DealDetail({ d }: { d: ExporterDeal }) {
                 Confirm Deal Terms
               </button>
             )}
-            <button type="button" disabled title="Order creation is the next feature" className="inline-flex h-10 cursor-not-allowed items-center gap-2 rounded-lg bg-orange/40 px-4 text-sm font-semibold text-on-brand">
-              <PackagePlus className="size-4" aria-hidden />
-              Create Order · coming next
-            </button>
+            <CreateOrderAction deal={d} />
           </div>
         </div>
       </header>

@@ -22,6 +22,8 @@ import {
   type ExporterDeal,
 } from "@/lib/exporter-deals";
 import { useExporterDeals } from "@/lib/exporter-deal-store";
+import { useExporterOrders } from "@/lib/exporter-order-store";
+import { orderForDeal } from "@/lib/exporter-orders";
 import type { Currency } from "@/lib/import-requirements";
 import { DealStatusPill, qtyText, SourceBadge, valueText } from "./deal-ui";
 
@@ -48,13 +50,14 @@ const EXECUTION_ORDER: Record<DealStatus, number> = {
 /** Seeded deals plus deals created in this browser. */
 export function DealsList() {
   const deals = useExporterDeals();
+  const orders = useExporterOrders();
   const rows = useMemo<Row[]>(
     () =>
       deals.map((d) => {
         const o = findOpportunity(d.requirementId);
-        return { d, status: dealStatus(d), destination: o ? shortCountry(o.delivery.destinationCountry) : "—", readiness: dealReadiness(d) };
+        return { d, status: dealStatus(d), destination: o ? shortCountry(o.delivery.destinationCountry) : "—", readiness: dealReadiness(d, orderForDeal(d.id, orders)?.id) };
       }),
-    [deals],
+    [deals, orders],
   );
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState<DealStatus | "">("");

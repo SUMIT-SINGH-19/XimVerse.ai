@@ -301,7 +301,8 @@ export interface DealMilestone {
   detail?: string;
 }
 
-export function dealMilestones(d: ExporterDeal): DealMilestone[] {
+/** `orderId`: the deal's order, if one exists (passed in to avoid an import cycle). */
+export function dealMilestones(d: ExporterDeal, orderId?: string): DealMilestone[] {
   const types = new Set(d.events.map((e) => e.type));
   const status = dealStatus(d);
   const confirmed = types.has("exporter-confirmed") || status === "ready-for-execution" || status === "completed";
@@ -322,13 +323,13 @@ export function dealMilestones(d: ExporterDeal): DealMilestone[] {
       detail: d.counterpartyAccess === "pending-verification" ? "Ximverse verification in progress" : undefined,
     },
     { key: "payment", label: "Payment instrument confirmed", done: false, detail: "Awaiting buyer instrument" },
-    { key: "order", label: "Order created", done: false, detail: "Orders are the next feature" },
+    { key: "order", label: "Order created", done: Boolean(orderId), detail: orderId ?? "Create the order once the deal is confirmed" },
   ];
 }
 
 /** Share of setup milestones complete — readiness to enter execution. */
-export function dealReadiness(d: ExporterDeal): number {
-  const m = dealMilestones(d);
+export function dealReadiness(d: ExporterDeal, orderId?: string): number {
+  const m = dealMilestones(d, orderId);
   return Math.round((m.filter((x) => x.done).length / m.length) * 100);
 }
 
@@ -388,7 +389,9 @@ export const SEEDED_DEALS: readonly ExporterDeal[] = [
     access: "pending-verification",
   }),
   // Accepted as submitted, no negotiation.
-  seededDeal("DL-2026-8102", "QT-2026-8132", { createdAt: "2026-08-26T12:00:00Z", access: "protected" }),
+  seededDeal("DL-2026-8102", "QT-2026-8132", { createdAt: "2026-08-26T12:00:00Z", confirmedAt: "2026-08-26T15:00:00Z", access: "protected" }),
+  // Accepted as submitted (EUR), no negotiation.
+  seededDeal("DL-2026-8103", "QT-2026-8126", { createdAt: "2026-10-05T09:00:00Z", confirmedAt: "2026-10-05T12:00:00Z", access: "protected" }),
 ];
 
 export const SEEDED_DEAL_IDS = SEEDED_DEALS.map((d) => d.id);

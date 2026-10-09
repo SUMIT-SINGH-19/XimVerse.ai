@@ -3,11 +3,11 @@
 import { useSyncExternalStore } from "react";
 import { MOCK_NOW, type ImportRequirement } from "@/lib/import-requirements";
 import type { Order } from "@/lib/importer-orders";
+import type { TradeDocument } from "@/lib/importer-documents";
 import {
   blockingItems,
   customsStatus,
   freightArrangedBy,
-  initialDocuments,
   MOCK_SHIPMENTS,
   NEXT_STATUS,
   nextShipmentId,
@@ -15,7 +15,6 @@ import {
   shipmentEligibility,
   shipmentState,
   type CustomsStatus,
-  type DocumentStatus,
   type Shipment,
   type ShipmentCargo,
   type ShipmentEvent,
@@ -27,7 +26,8 @@ import {
 
 /*
  * Shipments created in this browser tab and events added to any shipment
- * (document states, demo bookings, schedule updates, status progression),
+ * (demo bookings, schedule updates, status progression). Document state lives
+ * in the canonical document store (documents/document-store.ts),
  * persisted in sessionStorage. No carrier, tracking or customs system is
  * connected, and nothing is sent anywhere.
  */
@@ -125,7 +125,7 @@ export interface NewShipmentInput {
 }
 
 /** Creates a shipment from an eligible order. Returns its ID, or undefined if not eligible (e.g. one exists). */
-export function createShipment(order: Order, requirement: ImportRequirement, input: NewShipmentInput): string | undefined {
+export function createShipment(order: Order, _requirement: ImportRequirement, input: NewShipmentInput): string | undefined {
   const s = snapshot();
   const all = combine(s);
   if (!shipmentEligibility(order, all).ok) return undefined;
@@ -143,24 +143,12 @@ export function createShipment(order: Order, requirement: ImportRequirement, inp
     parties: input.parties,
     incoterm: order.terms.incoterm,
     hsCode: order.terms.hsCode,
-    documents: initialDocuments(requirement, order, input.route.mode, at),
     booking: { status: "not-started", arrangedBy: freightArrangedBy(order.terms.incoterm) },
     events: [{ id: "e1", type: "created", by: "importer", at, note: `From order ${order.id}` }],
     local: true,
   };
   commit({ ...s, created: [...s.created, shipment] });
   return shipment.id;
-}
-
-/** Records a document's state. `demo` marks simulated availability — no file is stored. */
-export function updateDocument(shipmentId: string, documentId: string, status: DocumentStatus, demo = false) {
-  append(shipmentId, {
-    type: "document-updated",
-    by: "importer",
-    demo,
-    document: { id: documentId, status },
-    note: demo ? "Marked available for the demo. No file was uploaded." : undefined,
-  });
 }
 
 export function simulateFreightBooking(shipmentId: string, reference: string, carrier?: string) {
@@ -191,16 +179,21 @@ const DEMO_STATUSES: readonly ShipmentStatus[] = ["at-origin", "in-transit", "ar
  * accepted, Ready to Ship requires the readiness checklist, and Delivered
  * requires customs clearance. Returns an error message when blocked.
  */
-export function advanceStatus(shipmentId: string, to: ShipmentStatus, supplierConfirmed: boolean): string | undefined {
+export function advanceStatus(
+  shipmentId: string,
+  to: ShipmentStatus,
+  supplierConfirmed: boolean,
+  documents: readonly TradeDocument[],
+): string | undefined {
   const sh = find(shipmentId);
   if (!sh) return "Shipment not found.";
   const st = shipmentState(sh);
   if (NEXT_STATUS[st.status] !== to) return "That status change isn't allowed from the current status.";
   if (to === "ready-to-ship") {
-    const blocking = blockingItems(preShipmentChecklist(sh, st, supplierConfirmed));
+    const blocking = blockingItems(preShipmentChecklist(sh, st, supplierConfirmed, documents));
     if (blocking.length) return `Complete ${blocking.length} required ${blocking.length === 1 ? "item" : "items"} before marking this shipment Ready to Ship.`;
   }
-  if (to === "delivered" && customsStatus(sh, st) !== "cleared") return "Customs must be cleared before the shipment is marked delivered.";
+  if (to === "delivered" && customsStatus(sh, st, documents) !== "cleared") return "Customs must be cleared before the shipment is marked delivered.";
   const demo = DEMO_STATUSES.includes(to);
   append(shipmentId, {
     type: "status-changed",

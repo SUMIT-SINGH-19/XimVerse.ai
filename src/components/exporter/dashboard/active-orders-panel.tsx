@@ -11,7 +11,7 @@ export function ActiveOrdersPanel({ orders }: { orders: readonly ActiveOrder[] }
           <li key={order.orderId} className="py-3.5 first:pt-0 last:pb-0">
             <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
               <div className="min-w-0">
-                <p className="font-mono text-xs text-ink-muted">{order.orderId}</p>
+                <p className="font-mono text-xs text-ink-muted"><a href={exporterHref(`orders/${order.orderId}`)} className="hover:text-teal">{order.orderId}</a></p>
                 <p className="mt-0.5 flex items-center gap-1.5 text-sm font-semibold text-ink">
                   {order.product}
                   <ArrowRight className="size-3.5 text-ink-faint" aria-label="to" />

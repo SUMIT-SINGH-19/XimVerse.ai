@@ -3,9 +3,10 @@
  *
  * A shipment references its order, requirement and supplier by ID. It freezes
  * only the logistics facts needed to execute it (cargo, route, mode, planned
- * schedule); commercial terms stay on the order. Documents, freight booking,
- * customs status and the lifecycle start from a base and change only through
- * append-only events, from which everything else is derived.
+ * schedule); commercial terms stay on the order. Freight booking, customs
+ * status and the lifecycle start from a base and change only through
+ * append-only events. Documents live in the canonical document layer
+ * (importer-documents.ts); readiness functions here take them as input.
  *
  * Designed for one shipment per order today; the order link is a plain
  * reference so split shipments can be added later.
@@ -14,8 +15,13 @@
  * carrier, tracking, freight or customs system is connected.
  */
 
-import { MOCK_NOW, type ImportRequirement, type Incoterm, type QuantityUnit } from "./import-requirements";
+import { MOCK_NOW, type Incoterm, type QuantityUnit } from "./import-requirements";
 import { orderStatus, type Order } from "./importer-orders";
+import type { TradeDocument } from "./importer-documents";
+
+// Document vocabulary now lives in the canonical document layer; re-exported
+// for existing type imports (e.g. exporter-orders.ts).
+export type { DocumentSource, DocumentStatus, DocumentType } from "./importer-documents";
 
 /* ------------------------------------------------------------------------ */
 /* Types                                                                     */
@@ -69,42 +75,6 @@ export interface ShipmentParties {
   freightForwarder?: string;
   customsBroker?: string;
   carrier?: string;
-}
-
-export type DocumentStatus = "not-started" | "requested" | "draft" | "available" | "approved" | "not-required";
-
-export const DOCUMENT_STATUS_LABEL: Record<DocumentStatus, string> = {
-  "not-started": "Not Started",
-  requested: "Requested",
-  draft: "Draft",
-  available: "Available",
-  approved: "Approved",
-  "not-required": "Not Required",
-};
-
-export type DocumentType =
-  | "commercial-invoice"
-  | "packing-list"
-  | "certificate-of-origin"
-  | "transport-document"
-  | "insurance-certificate"
-  | "inspection-certificate"
-  | "product-certificate"
-  | "import-permit"
-  | "shipping-instructions";
-
-export type DocumentSource = "supplier" | "importer" | "carrier" | "inspector" | "customs-broker";
-
-/** A document's state on the shipment. No file is stored. */
-export interface ShipmentDocument {
-  id: string;
-  type: DocumentType;
-  label: string;
-  status: DocumentStatus;
-  source: DocumentSource;
-  /** ISO timestamp. */
-  updatedAt: string;
-  note?: string;
 }
 
 export type FreightBookingStatus = "not-started" | "rfq-needed" | "awaiting-confirmation" | "booked";
@@ -184,7 +154,6 @@ export const NEXT_STATUS: Partial<Record<ShipmentStatus, ShipmentStatus>> = {
 
 export type ShipmentEventType =
   | "created"
-  | "document-updated"
   | "booking-updated"
   | "schedule-updated"
   | "cargo-ready"
@@ -200,7 +169,6 @@ export interface ShipmentEvent {
   /** Recorded with a demo action — no external system involved. */
   demo?: boolean;
   note?: string;
-  document?: { id: string; status: DocumentStatus };
   booking?: { status: FreightBookingStatus; reference?: string; carrier?: string; forwarder?: string };
   schedule?: Partial<ShipmentSchedule>;
   status?: ShipmentStatus;
@@ -221,8 +189,6 @@ export interface Shipment {
   parties: ShipmentParties;
   incoterm: Incoterm;
   hsCode?: string;
-  /** Documents as at creation; updates are events. */
-  documents: ShipmentDocument[];
   booking: FreightBooking;
   events: ShipmentEvent[];
   local?: boolean;
@@ -237,7 +203,6 @@ export const SHIPMENT_ID_PATTERN = /^SHP-\d{4}-\d{4,}$/;
 export interface ShipmentState {
   status: ShipmentStatus;
   stage: ShipmentStage;
-  documents: ShipmentDocument[];
   booking: FreightBooking & { carrier?: string; forwarder?: string };
   schedule: ShipmentSchedule;
   /** Explicit customs events (demo or historical), if any. */
@@ -249,7 +214,6 @@ export interface ShipmentState {
 /** Applies a shipment's events, in order, to its base. */
 export function shipmentState(s: Shipment): ShipmentState {
   let status: ShipmentStatus = "preparing";
-  const docs = new Map(s.documents.map((d) => [d.id, { ...d }]));
   let booking: ShipmentState["booking"] = { ...s.booking, carrier: s.parties.carrier, forwarder: s.parties.freightForwarder };
   let schedule = { ...s.schedule };
   let customsEvent: CustomsStatus | undefined;
@@ -259,11 +223,6 @@ export function shipmentState(s: Shipment): ShipmentState {
   for (const e of s.events) {
     if (e.at > updatedAt) updatedAt = e.at;
     switch (e.type) {
-      case "document-updated": {
-        const d = e.document && docs.get(e.document.id);
-        if (d && e.document) docs.set(d.id, { ...d, status: e.document.status, updatedAt: e.at, note: e.note ?? d.note });
-        break;
-      }
       case "booking-updated":
         if (e.booking) {
           booking = {
@@ -289,10 +248,11 @@ export function shipmentState(s: Shipment): ShipmentState {
         break;
     }
   }
-  return { status, stage: stageOf(status), documents: [...docs.values()], booking, schedule, customsEvent, cargoReady, updatedAt };
+  return { status, stage: stageOf(status), booking, schedule, customsEvent, cargoReady, updatedAt };
 }
 
-const isDone = (d?: ShipmentDocument) => !!d && (d.status === "available" || d.status === "approved");
+/** Complete = available or approved and not expired (derived in the document layer). */
+const isDone = (d?: TradeDocument) => !!d && d.complete;
 
 export type ReadinessStatus = "complete" | "pending" | "not-started" | "not-required";
 
@@ -303,10 +263,11 @@ export const READINESS_STATUS_LABEL: Record<ReadinessStatus, string> = {
   "not-required": "Not Required",
 };
 
-function docReadiness(d?: ShipmentDocument): ReadinessStatus {
+function docReadiness(d?: TradeDocument): ReadinessStatus {
   if (!d || d.status === "not-required") return "not-required";
   if (isDone(d)) return "complete";
-  if (d.status === "requested" || d.status === "draft") return "pending";
+  // Requested, draft, needs review — or provided but expired.
+  if (d.status !== "not-started") return "pending";
   return "not-started";
 }
 
@@ -319,9 +280,15 @@ export interface ReadinessItem {
 }
 
 /** The pre-shipment coordination checklist. */
-export function preShipmentChecklist(s: Shipment, state: ShipmentState, supplierConfirmed: boolean): ReadinessItem[] {
-  const doc = (type: DocumentType) => state.documents.find((d) => d.type === type);
-  const productCerts = state.documents.filter((d) => d.type === "product-certificate");
+export function preShipmentChecklist(
+  s: Shipment,
+  state: ShipmentState,
+  supplierConfirmed: boolean,
+  documents: readonly TradeDocument[],
+): ReadinessItem[] {
+  const docs = documents.filter((d) => d.shipmentId === s.id);
+  const doc = (type: TradeDocument["type"]) => docs.find((d) => d.type === type);
+  const productCerts = docs.filter((d) => d.type === "product-certificate");
   const coo = doc("certificate-of-origin");
   const certStatus: ReadinessStatus =
     productCerts.length === 0
@@ -357,9 +324,9 @@ export function blockingItems(items: readonly ReadinessItem[]): ReadinessItem[] 
 }
 
 /** Customs readiness: explicit (demo/historical) events win; otherwise derived from documents. */
-export function customsStatus(s: Shipment, state: ShipmentState): CustomsStatus {
+export function customsStatus(s: Shipment, state: ShipmentState, documents: readonly TradeDocument[]): CustomsStatus {
   if (state.customsEvent) return state.customsEvent;
-  const doc = (type: DocumentType) => state.documents.find((d) => d.type === type);
+  const doc = (type: TradeDocument["type"]) => documents.find((d) => d.shipmentId === s.id && d.type === type);
   const ci = doc("commercial-invoice");
   const pl = doc("packing-list");
   if (isDone(ci) && isDone(pl) && s.parties.customsBroker) return "ready-for-filing";
@@ -368,7 +335,7 @@ export function customsStatus(s: Shipment, state: ShipmentState): CustomsStatus 
 }
 
 /** The single most useful next step, derived from status and readiness. */
-export function nextAction(s: Shipment, state: ShipmentState, checklist: readonly ReadinessItem[]): string {
+export function nextAction(s: Shipment, state: ShipmentState, checklist: readonly ReadinessItem[], documents: readonly TradeDocument[]): string {
   switch (state.status) {
     case "preparing": {
       const blocking = blockingItems(checklist)[0];
@@ -385,11 +352,11 @@ export function nextAction(s: Shipment, state: ShipmentState, checklist: readonl
       return "Await departure";
     case "in-transit":
       if (!s.parties.customsBroker) return "Assign a customs broker before arrival";
-      return customsStatus(s, state) === "ready-for-filing" ? "Await arrival" : "Prepare customs documents";
+      return customsStatus(s, state, documents) === "ready-for-filing" ? "Await arrival" : "Prepare customs documents";
     case "arrived":
       return "Start customs clearance";
     case "customs":
-      return customsStatus(s, state) === "cleared" ? "Mark shipment delivered" : "Await customs clearance";
+      return customsStatus(s, state, documents) === "cleared" ? "Mark shipment delivered" : "Await customs clearance";
     case "delivered":
       return "No further action — shipment delivered";
   }
@@ -404,14 +371,18 @@ export interface Milestone {
 }
 
 /** Standard milestones with the recorded date of each, if reached. */
-export function milestones(s: Shipment): Milestone[] {
+export function milestones(s: Shipment, documents: readonly TradeDocument[]): Milestone[] {
   const find = (pred: (e: ShipmentEvent) => boolean) => s.events.find(pred);
   const statusEvent = (status: ShipmentStatus) => find((e) => e.type === "status-changed" && e.status === status);
-  const docsStarted = find((e) => e.type === "document-updated");
+  // First document activity for this shipment, from the document layer.
+  const docsStarted = documents
+    .filter((d) => d.shipmentId === s.id)
+    .flatMap((d) => d.events)
+    .sort((a, b) => a.at.localeCompare(b.at))[0];
   const booked = find((e) => e.type === "booking-updated" && e.booking?.status === "booked");
   const customsStart = find((e) => e.type === "customs-updated" && e.customs !== "cleared");
   const customsCleared = find((e) => e.type === "customs-updated" && e.customs === "cleared");
-  const pick = (e?: ShipmentEvent) => (e ? { at: e.at, demo: e.demo } : {});
+  const pick = (e?: { at: string; demo?: boolean }) => (e ? { at: e.at, demo: e.demo } : {});
   return [
     { id: "created", label: "Shipment created", at: s.createdAt },
     { id: "docs", label: "Documents preparation started", ...pick(docsStarted) },
@@ -463,46 +434,6 @@ export function nextShipmentId(existing: readonly Shipment[], year: number): str
   return `SHP-${year}-${String(max + 1).padStart(4, "0")}`;
 }
 
-const TRANSPORT_DOC: Record<TransportMode, string> = {
-  sea: "Bill of Lading",
-  air: "Air Waybill",
-  road: "CMR Consignment Note",
-  rail: "Rail Consignment Note",
-  multimodal: "Multimodal Transport Document",
-};
-
-/** Initial document checklist, from the requirement's requested certificates and the order's Incoterm. */
-export function initialDocuments(requirement: ImportRequirement, order: Order, mode: TransportMode, at: string): ShipmentDocument[] {
-  const certs = requirement.quality.certifications;
-  const doc = (id: string, type: DocumentType, label: string, source: DocumentSource, status: DocumentStatus = "not-started", note?: string): ShipmentDocument => ({
-    id,
-    type,
-    label,
-    status,
-    source,
-    updatedAt: at,
-    note,
-  });
-  const insured = order.terms.incoterm === "CIF" || order.terms.incoterm === "CIP";
-  const productCerts = certs.filter((c) => c !== "Certificate of Origin" && c !== "Inspection Certificate");
-  const inspection = certs.includes("Inspection Certificate") || !!requirement.quality.inspection;
-  return [
-    doc("ci", "commercial-invoice", "Commercial Invoice", "supplier"),
-    doc("pl", "packing-list", "Packing List", "supplier"),
-    certs.includes("Certificate of Origin")
-      ? doc("coo", "certificate-of-origin", "Certificate of Origin", "supplier")
-      : doc("coo", "certificate-of-origin", "Certificate of Origin", "supplier", "not-required", "Not requested in the requirement."),
-    ...productCerts.map((c, i) => doc(`cert-${i + 1}`, "product-certificate", c, "supplier")),
-    ...(inspection ? [doc("inspection", "inspection-certificate", "Inspection Certificate", "inspector")] : []),
-    doc("transport", "transport-document", TRANSPORT_DOC[mode], "carrier"),
-    insured
-      ? doc("insurance", "insurance-certificate", "Insurance Certificate", "supplier")
-      : doc("insurance", "insurance-certificate", "Insurance Certificate", "importer", "not-required", `${order.terms.incoterm}: cargo insurance is arranged by the buyer separately.`),
-    doc("permit", "import-permit", "Import Permit", "importer", "not-required", "No import permit recorded for this product."),
-    doc("si", "shipping-instructions", "Shipping Instructions", "importer"),
-  ];
-}
-
 export function freightArrangedBy(incoterm: Incoterm): FreightBooking["arrangedBy"] {
   return ["EXW", "FCA", "FOB"].includes(incoterm) ? "importer" : "supplier";
 }
@@ -510,8 +441,6 @@ export function freightArrangedBy(incoterm: Incoterm): FreightBooking["arrangedB
 /* ------------------------------------------------------------------------ */
 /* Mock data                                                                 */
 /* ------------------------------------------------------------------------ */
-
-const D = (id: string, type: DocumentType, label: string, source: DocumentSource, status: DocumentStatus, updatedAt: string, note?: string): ShipmentDocument => ({ id, type, label, status, source, updatedAt, note });
 
 export const MOCK_SHIPMENTS: readonly Shipment[] = [
   // Historical: delivered (order ORD-2026-0001 is completed).
@@ -527,30 +456,14 @@ export const MOCK_SHIPMENTS: readonly Shipment[] = [
     parties: { freightForwarder: "Supplier-nominated", customsBroker: "Harbourline Customs Services (demo)", carrier: "Blue Anchor Lines (demo)" },
     incoterm: "CFR",
     hsCode: "1512.19",
-    documents: [
-      D("ci", "commercial-invoice", "Commercial Invoice", "supplier", "not-started", "2026-06-22T06:00:00Z"),
-      D("pl", "packing-list", "Packing List", "supplier", "not-started", "2026-06-22T06:00:00Z"),
-      D("coo", "certificate-of-origin", "Certificate of Origin", "supplier", "not-started", "2026-06-22T06:00:00Z"),
-      D("cert-1", "product-certificate", "Health Certificate", "supplier", "not-started", "2026-06-22T06:00:00Z"),
-      D("transport", "transport-document", "Bill of Lading", "carrier", "not-started", "2026-06-22T06:00:00Z"),
-      D("insurance", "insurance-certificate", "Insurance Certificate", "importer", "not-required", "2026-06-22T06:00:00Z", "CFR: cargo insurance is arranged by the buyer separately."),
-      D("permit", "import-permit", "Import Permit", "importer", "not-required", "2026-06-22T06:00:00Z"),
-      D("si", "shipping-instructions", "Shipping Instructions", "importer", "not-started", "2026-06-22T06:00:00Z"),
-    ],
     booking: { status: "not-started", arrangedBy: "supplier" },
     events: [
       { id: "e1", type: "created", by: "importer", at: "2026-06-22T06:00:00Z" },
-      { id: "e2", type: "document-updated", by: "importer", at: "2026-06-22T07:00:00Z", document: { id: "si", status: "available" }, note: "Shipping instructions sent to supplier." },
       { id: "e3", type: "booking-updated", by: "supplier", at: "2026-06-25T09:00:00Z", booking: { status: "booked", reference: "BAL-ODS-24117" } },
-      { id: "e4", type: "document-updated", by: "supplier", at: "2026-06-29T08:00:00Z", document: { id: "ci", status: "approved" } },
-      { id: "e5", type: "document-updated", by: "supplier", at: "2026-06-29T08:00:00Z", document: { id: "pl", status: "approved" } },
-      { id: "e6", type: "document-updated", by: "supplier", at: "2026-06-30T10:00:00Z", document: { id: "coo", status: "available" } },
-      { id: "e7", type: "document-updated", by: "supplier", at: "2026-06-30T10:00:00Z", document: { id: "cert-1", status: "available" } },
       { id: "e8", type: "cargo-ready", by: "supplier", at: "2026-06-30T12:00:00Z" },
       { id: "e9", type: "status-changed", by: "importer", at: "2026-07-01T06:00:00Z", status: "ready-to-ship" },
       { id: "e10", type: "status-changed", by: "carrier", at: "2026-07-03T09:00:00Z", status: "at-origin" },
       { id: "e11", type: "status-changed", by: "carrier", at: "2026-07-05T04:00:00Z", status: "in-transit", note: "Departed Odesa." },
-      { id: "e12", type: "document-updated", by: "carrier", at: "2026-07-05T08:00:00Z", document: { id: "transport", status: "available" } },
       { id: "e13", type: "schedule-updated", by: "carrier", at: "2026-07-20T06:00:00Z", schedule: { eta: "2026-08-18" }, note: "ETA revised after transshipment delay." },
       { id: "e14", type: "status-changed", by: "carrier", at: "2026-08-18T10:00:00Z", status: "arrived" },
       { id: "e15", type: "status-changed", by: "customs-broker", at: "2026-08-19T05:00:00Z", status: "customs" },
@@ -572,32 +485,14 @@ export const MOCK_SHIPMENTS: readonly Shipment[] = [
     parties: { freightForwarder: "Gulfway Logistics (demo)", customsBroker: "Al Marsa Clearing (demo)", carrier: "Blue Anchor Lines (demo)" },
     incoterm: "FOB",
     hsCode: "1006.30",
-    documents: [
-      D("ci", "commercial-invoice", "Commercial Invoice", "supplier", "draft", "2026-09-22T06:00:00Z"),
-      D("pl", "packing-list", "Packing List", "supplier", "not-started", "2026-09-20T06:30:00Z"),
-      D("coo", "certificate-of-origin", "Certificate of Origin", "supplier", "requested", "2026-09-20T06:30:00Z"),
-      D("cert-1", "product-certificate", "Phytosanitary Certificate", "supplier", "not-started", "2026-09-20T06:30:00Z"),
-      D("cert-2", "product-certificate", "Fumigation Certificate", "supplier", "not-started", "2026-09-20T06:30:00Z"),
-      D("transport", "transport-document", "Bill of Lading", "carrier", "not-started", "2026-09-20T06:30:00Z"),
-      D("insurance", "insurance-certificate", "Insurance Certificate", "importer", "not-required", "2026-09-20T06:30:00Z", "FOB: cargo insurance is arranged by the buyer separately."),
-      D("permit", "import-permit", "Import Permit", "importer", "not-required", "2026-09-20T06:30:00Z"),
-      D("si", "shipping-instructions", "Shipping Instructions", "importer", "not-started", "2026-09-20T06:30:00Z"),
-    ],
     booking: { status: "rfq-needed", arrangedBy: "importer" },
     events: [
       { id: "e1", type: "created", by: "importer", at: "2026-09-20T06:30:00Z" },
       { id: "e2", type: "booking-updated", by: "importer", at: "2026-09-23T08:00:00Z", booking: { status: "booked", reference: "GWL-MUN-0931" }, note: "Booked through Gulfway Logistics (demo)." },
-      { id: "e3", type: "document-updated", by: "importer", at: "2026-09-23T09:00:00Z", document: { id: "si", status: "available" } },
-      { id: "e4", type: "document-updated", by: "supplier", at: "2026-09-26T07:00:00Z", document: { id: "ci", status: "approved" } },
-      { id: "e5", type: "document-updated", by: "supplier", at: "2026-09-26T07:00:00Z", document: { id: "pl", status: "approved" } },
-      { id: "e6", type: "document-updated", by: "supplier", at: "2026-09-27T10:00:00Z", document: { id: "coo", status: "available" } },
-      { id: "e7", type: "document-updated", by: "supplier", at: "2026-09-27T10:00:00Z", document: { id: "cert-1", status: "available" } },
       { id: "e8", type: "cargo-ready", by: "supplier", at: "2026-09-28T09:00:00Z" },
       { id: "e9", type: "status-changed", by: "importer", at: "2026-09-29T05:00:00Z", status: "ready-to-ship" },
       { id: "e10", type: "status-changed", by: "carrier", at: "2026-10-01T12:00:00Z", status: "at-origin" },
-      { id: "e11", type: "document-updated", by: "supplier", at: "2026-10-01T13:00:00Z", document: { id: "cert-2", status: "available" } },
       { id: "e12", type: "status-changed", by: "carrier", at: "2026-10-03T03:00:00Z", status: "in-transit", note: "Departed Mundra." },
-      { id: "e13", type: "document-updated", by: "carrier", at: "2026-10-03T08:00:00Z", document: { id: "transport", status: "available" } },
       { id: "e14", type: "schedule-updated", by: "carrier", at: "2026-10-04T06:00:00Z", schedule: { etd: "2026-10-03", eta: "2026-10-09" }, note: "Departed a day late; ETA revised." },
     ],
   },
@@ -614,20 +509,9 @@ export const MOCK_SHIPMENTS: readonly Shipment[] = [
     parties: {},
     incoterm: "CFR",
     hsCode: "5205.26",
-    documents: [
-      D("ci", "commercial-invoice", "Commercial Invoice", "supplier", "not-started", "2026-10-01T05:00:00Z"),
-      D("pl", "packing-list", "Packing List", "supplier", "not-started", "2026-10-01T05:00:00Z"),
-      D("coo", "certificate-of-origin", "Certificate of Origin", "supplier", "not-started", "2026-10-01T05:00:00Z"),
-      D("transport", "transport-document", "Bill of Lading", "carrier", "not-started", "2026-10-01T05:00:00Z"),
-      D("insurance", "insurance-certificate", "Insurance Certificate", "importer", "not-required", "2026-10-01T05:00:00Z", "CFR: cargo insurance is arranged by the buyer separately."),
-      D("permit", "import-permit", "Import Permit", "importer", "not-required", "2026-10-01T05:00:00Z"),
-      D("si", "shipping-instructions", "Shipping Instructions", "importer", "not-started", "2026-10-01T05:00:00Z"),
-    ],
     booking: { status: "not-started", arrangedBy: "supplier" },
     events: [
       { id: "e1", type: "created", by: "importer", at: "2026-10-01T05:00:00Z" },
-      { id: "e2", type: "document-updated", by: "supplier", at: "2026-10-04T08:00:00Z", document: { id: "ci", status: "draft" }, note: "Draft invoice shared by supplier." },
-      { id: "e3", type: "document-updated", by: "importer", at: "2026-10-04T09:00:00Z", document: { id: "coo", status: "requested" } },
       { id: "e4", type: "booking-updated", by: "supplier", at: "2026-10-05T06:00:00Z", booking: { status: "awaiting-confirmation" }, note: "Supplier requested space with their carrier." },
     ],
   },

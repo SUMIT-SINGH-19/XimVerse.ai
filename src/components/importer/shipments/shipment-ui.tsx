@@ -7,7 +7,6 @@ import { importerHref } from "@/lib/importer-nav";
 import { orderStatus, type Order } from "@/lib/importer-orders";
 import {
   CUSTOMS_STATUS_LABEL,
-  DOCUMENT_STATUS_LABEL,
   FREIGHT_STATUS_LABEL,
   READINESS_STATUS_LABEL,
   shipmentEligibility,
@@ -15,12 +14,11 @@ import {
   shipmentState,
   shipmentStatusLabel,
   type ReadinessStatus,
-  type Shipment,
   type ShipmentEvent,
   type ShipmentStatus,
 } from "@/lib/importer-shipments";
 import { ImportId } from "../dashboard/dashboard-ui";
-import { primaryButton, secondaryButton } from "../styles";
+import { focusRing, primaryButton, secondaryButton } from "../styles";
 import { useShipments } from "./shipment-store";
 
 const STATUS_STYLE: Record<ShipmentStatus, string> = {
@@ -71,15 +69,11 @@ export function eventParty(e: ShipmentEvent): string {
   return PARTY[e.by];
 }
 
-/** A structured, human-readable line for an activity event. */
-export function describeEvent(e: ShipmentEvent, s: Shipment): string {
+/** A structured, human-readable line for a shipment event (document events are described in the document layer). */
+export function describeEvent(e: ShipmentEvent): string {
   switch (e.type) {
     case "created":
       return "Shipment created";
-    case "document-updated": {
-      const label = s.documents.find((d) => d.id === e.document?.id)?.label ?? "Document";
-      return `${label} marked ${DOCUMENT_STATUS_LABEL[e.document!.status].toLowerCase()}`;
-    }
     case "booking-updated":
       return e.booking?.status === "booked"
         ? `Freight booked${e.booking.reference ? ` · ref. ${e.booking.reference}` : ""}`
@@ -120,10 +114,14 @@ export function OrderShipmentPanel({ order }: { order: Order }) {
         <p className="text-sm text-ink">
           Shipment Created · <ImportId id={shipment.id} className="text-ink" /> · <ShipmentStatusBadge status={st.status} />
         </p>
-        <Link href={importerHref(`shipments/${shipment.id}`)} className={`${secondaryButton} h-10`}>
-          View Shipment
-          <ArrowRight aria-hidden className="size-4" />
-        </Link>
+        <span className="flex flex-wrap items-center gap-x-4 gap-y-2">
+          <Link href={`${importerHref("documents")}?shipment=${shipment.id}`} className={`rounded text-sm font-semibold text-teal hover:underline ${focusRing}`}>Documents</Link>
+          <Link href={importerHref(`compliance/${shipment.id}`)} className={`rounded text-sm font-semibold text-teal hover:underline ${focusRing}`}>Compliance</Link>
+          <Link href={importerHref(`shipments/${shipment.id}`)} className={`${secondaryButton} h-10`}>
+            View Shipment
+            <ArrowRight aria-hidden className="size-4" />
+          </Link>
+        </span>
       </>
     );
   } else if (eligibility.ok) {

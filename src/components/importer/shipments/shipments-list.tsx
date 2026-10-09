@@ -24,6 +24,7 @@ import { ImporterPageHeader } from "../importer-page-header";
 import { useOrders } from "../orders/order-store";
 import { focusRing } from "../styles";
 import { useShipments } from "./shipment-store";
+import { useDocuments } from "../documents/document-store";
 import { ShipmentStatusBadge } from "./shipment-ui";
 
 const SORTS = [
@@ -59,13 +60,14 @@ interface Row {
 export function ShipmentsList() {
   const shipments = useShipments();
   const orders = useOrders();
+  const documents = useDocuments();
   const [filters, setFilters] = useState<Filters>(NO_FILTERS);
   const set = <K extends keyof Filters>(k: K, v: Filters[K]) => setFilters((f) => ({ ...f, [k]: v }));
 
   const rows: Row[] = shipments.map((sh) => {
     const st = shipmentState(sh);
     const confirmed = !!orders.find((o) => o.id === sh.orderId)?.events.some((e) => e.type === "supplier-confirmed");
-    return { sh, st, supplier: findSupplier(sh.supplierId)?.name ?? sh.supplierId, next: nextAction(sh, st, preShipmentChecklist(sh, st, confirmed)) };
+    return { sh, st, supplier: findSupplier(sh.supplierId)?.name ?? sh.supplierId, next: nextAction(sh, st, preShipmentChecklist(sh, st, confirmed, documents), documents) };
   });
   const suppliers = [...new Map(rows.map((r) => [r.sh.supplierId, r.supplier])).entries()].sort((a, b) => a[1].localeCompare(b[1]));
   const destinations = [...new Set(rows.map((r) => r.sh.route.portOfDischarge))].sort();

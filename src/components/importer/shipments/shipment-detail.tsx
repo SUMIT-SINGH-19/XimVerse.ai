@@ -11,7 +11,6 @@ import {
   blockingItems,
   CUSTOMS_STATUS_LABEL,
   customsStatus,
-  DOCUMENT_STATUS_LABEL,
   FREIGHT_STATUS_LABEL,
   milestones,
   modeLabel,
@@ -22,7 +21,6 @@ import {
   shipmentState,
   stageLabel,
   stageOf,
-  type ShipmentDocument,
   type Shipment,
   type ShipmentState,
   type ShipmentStatus,
@@ -38,12 +36,20 @@ import {
   markCargoReady,
   simulateCustomsClearance,
   simulateFreightBooking,
-  updateDocument,
   updateSchedule,
   useShipments,
   useShipmentsLoaded,
 } from "./shipment-store";
 import { describeEvent, eventParty, ReadinessStatusBadge, ShipmentStatusBadge } from "./shipment-ui";
+import {
+  DOCUMENT_SOURCE_LABEL,
+  DOCUMENT_STATUS_LABEL,
+  describeDocumentEvent,
+  documentsForShipment,
+  VALIDITY_LABEL,
+  type TradeDocument,
+} from "@/lib/importer-documents";
+import { approveForWorkflow, issueDocument, markDocumentAvailable, requestDocument, useDocuments } from "../documents/document-store";
 
 const backLink = `inline-flex items-center gap-1.5 rounded-md text-sm font-medium text-ink-muted hover:text-teal ${focusRing}`;
 const textLink = `inline-flex items-center gap-1 rounded text-sm font-semibold text-teal hover:underline ${focusRing}`;
@@ -80,9 +86,10 @@ function Workspace({ sh }: { sh: Shipment }) {
   const supplier = findSupplier(sh.supplierId)!;
   const st = shipmentState(sh);
   const supplierConfirmed = !!order?.events.some((e) => e.type === "supplier-confirmed");
-  const checklist = preShipmentChecklist(sh, st, supplierConfirmed);
+  const docs = documentsForShipment(sh.id, useDocuments());
+  const checklist = preShipmentChecklist(sh, st, supplierConfirmed, docs);
   const blocking = blockingItems(checklist);
-  const customs = customsStatus(sh, st);
+  const customs = customsStatus(sh, st, docs);
   const [message, setMessage] = useState("");
 
   const run = (fn: () => string | void, success: string) => {
@@ -114,6 +121,8 @@ function Workspace({ sh }: { sh: Shipment }) {
           <Link href={importerHref(`orders/${sh.orderId}`)} className={textLink}>View Order</Link>
           <Link href={importerHref(`rfqs/${sh.requirementId}`)} className={textLink}>View Requirement</Link>
           <Link href={supplierHref(sh.supplierId)} className={textLink}>View Supplier</Link>
+          <Link href={`${importerHref("documents")}?shipment=${sh.id}`} className={textLink}>Manage Documents</Link>
+          <Link href={importerHref(`compliance/${sh.id}`)} className={textLink}>View Compliance</Link>
         </div>
       </div>
 
@@ -121,12 +130,12 @@ function Workspace({ sh }: { sh: Shipment }) {
 
       <section aria-labelledby="next-action" className="rounded-2xl border border-line bg-surface px-5 py-4 shadow-[0_1px_2px_rgba(11,46,48,0.04),0_8px_24px_rgba(11,46,48,0.05)] sm:px-6">
         <p className="text-xs font-semibold uppercase tracking-[0.14em] text-orange">Next action</p>
-        <h2 id="next-action" className="mt-1 text-lg font-semibold text-ink">{nextAction(sh, st, checklist)}</h2>
+        <h2 id="next-action" className="mt-1 text-lg font-semibold text-ink">{nextAction(sh, st, checklist, docs)}</h2>
         <StatusActions
           st={st}
           blockingCount={blocking.length}
           customsCleared={customs === "cleared"}
-          onAdvance={(to) => run(() => advanceStatus(sh.id, to, supplierConfirmed), "Status updated.")}
+          onAdvance={(to) => run(() => advanceStatus(sh.id, to, supplierConfirmed, docs), "Status updated.")}
           onCargoReady={() => run(() => markCargoReady(sh.id), "Cargo marked ready.")}
           onClear={() => run(() => simulateCustomsClearance(sh.id), "Demo customs clearance recorded.")}
         />
@@ -150,7 +159,7 @@ function Workspace({ sh }: { sh: Shipment }) {
                   ["Transport mode", modeLabel(sh.route.mode)],
                   ["Incoterm", sh.incoterm],
                   ["Current stage", stageLabel(st.stage)],
-                  ["Next action", nextAction(sh, st, checklist)],
+                  ["Next action", nextAction(sh, st, checklist, docs)],
                 ]}
               />
             </div>
@@ -196,11 +205,11 @@ function Workspace({ sh }: { sh: Shipment }) {
             )}
           </Panel>
 
-          <Documents sh={sh} st={st} onMessage={setMessage} />
+          <Documents sh={sh} st={st} docs={docs} onMessage={setMessage} />
 
           <Panel id="milestones" title="Milestones" description="Recorded milestones. Demo entries were simulated; no tracking system is connected.">
             <ol className="px-5 pb-5 pt-4 sm:px-6">
-              {milestones(sh).map((m, i, list) => (
+              {milestones(sh, docs).map((m, i, list) => (
                 <li key={m.id} className="relative flex gap-3 pb-4 last:pb-0">
                   {i < list.length - 1 && <span aria-hidden className={`absolute left-[7px] top-5 h-full w-px ${m.at ? "bg-teal/50" : "bg-line"}`} />}
                   <span
@@ -229,17 +238,17 @@ function Workspace({ sh }: { sh: Shipment }) {
 
           <Panel id="shipment-activity" title="Activity">
             <ol className="px-5 pb-5 pt-4 sm:px-6">
-              {[...sh.events].reverse().map((e, i, list) => (
+              {activityFeed(sh, docs).map((e, i, list) => (
                 <li key={e.id} className="relative flex gap-3 pb-4 last:pb-0">
                   {i < list.length - 1 && <span aria-hidden className="absolute left-[3.5px] top-3 h-full w-px bg-line" />}
-                  <span aria-hidden className={`relative mt-1.5 size-2 shrink-0 rounded-full ${e.by === "importer" ? "bg-orange" : "bg-teal"}`} />
+                  <span aria-hidden className={`relative mt-1.5 size-2 shrink-0 rounded-full ${e.byYou ? "bg-orange" : "bg-teal"}`} />
                   <div className="min-w-0">
                     <p className="flex flex-wrap items-baseline gap-x-2 text-sm">
-                      <span className="font-medium text-ink">{describeEvent(e, sh)}</span>
+                      <span className="font-medium text-ink">{e.text}</span>
                       {e.demo && demoTag}
                     </p>
                     <p className="text-xs text-ink-faint">
-                      <time dateTime={e.at}>{formatDate(e.at)}</time> · {eventParty(e)}
+                      <time dateTime={e.at}>{formatDate(e.at)}</time> · {e.party}
                     </p>
                     {e.note && <p className="mt-0.5 text-sm text-ink-muted">{e.note}</p>}
                   </div>
@@ -251,7 +260,7 @@ function Workspace({ sh }: { sh: Shipment }) {
 
         <div className="space-y-6">
           <Freight sh={sh} st={st} onMessage={setMessage} />
-          <Customs sh={sh} st={st} customs={customs} />
+          <Customs sh={sh} st={st} docs={docs} customs={customs} />
           <SumitAnalysisCard
             id="sumit-shipment"
             heading="Ask SUMIT about this shipment"
@@ -485,37 +494,39 @@ function RouteAndSchedule({ sh, st, onMessage }: { sh: Shipment; st: ShipmentSta
   );
 }
 
-function Documents({ sh, st, onMessage }: { sh: Shipment; st: ShipmentState; onMessage: (m: string) => void }) {
+function Documents({ sh, st, docs, onMessage }: { sh: Shipment; st: ShipmentState; docs: TradeDocument[]; onMessage: (m: string) => void }) {
   const departed = ["in-transit", "arrived", "customs", "delivered"].includes(st.status);
   const atOriginOrLater = departed || st.status === "at-origin";
-  const actions = (d: ShipmentDocument) => {
+  const act = (result: string | void, ok: string) => onMessage(result || ok);
+  const actions = (d: TradeDocument) => {
     if (d.status === "not-required" || d.status === "approved") return null;
     const transportBlocked = d.type === "transport-document" && !atOriginOrLater;
+    const provided = d.status === "available" || d.status === "needs-review";
     return (
       <div className="flex flex-wrap gap-1.5">
         {d.status === "not-started" && d.source !== "importer" && (
-          <button type="button" className={smallButton} onClick={() => { updateDocument(sh.id, d.id, "requested"); onMessage(`${d.label} marked requested.`); }}>
+          <button type="button" className={smallButton} onClick={() => act(requestDocument(d, atOriginOrLater), `${d.label} marked requested.`)}>
             Mark Requested<span className="sr-only"> {d.label}</span>
           </button>
         )}
-        {d.source === "importer" && d.status !== "available" && (
-          <button type="button" className={smallButton} onClick={() => { updateDocument(sh.id, d.id, "available"); onMessage(`${d.label} marked issued.`); }}>
+        {d.source === "importer" && !provided && (
+          <button type="button" className={smallButton} onClick={() => act(issueDocument(d), `${d.label} marked issued.`)}>
             Mark Issued<span className="sr-only"> {d.label}</span>
           </button>
         )}
-        {d.source !== "importer" && d.status !== "available" && (
+        {d.source !== "importer" && !provided && (
           <button
             type="button"
             className={smallButton}
             disabled={transportBlocked}
             title={transportBlocked ? "Available once cargo is with the carrier" : undefined}
-            onClick={() => { updateDocument(sh.id, d.id, "available", true); onMessage(`${d.label} marked available (demo).`); }}
+            onClick={() => act(markDocumentAvailable(d, {}, atOriginOrLater), `${d.label} marked available (demo).`)}
           >
             Mark Available<span className="sr-only"> {d.label}</span> {demoTag}
           </button>
         )}
-        {d.status === "available" && (
-          <button type="button" className={smallButton} onClick={() => { updateDocument(sh.id, d.id, "approved"); onMessage(`${d.label} approved.`); }}>
+        {provided && (
+          <button type="button" className={smallButton} onClick={() => act(approveForWorkflow(d), `${d.label} approved.`)}>
             Approve<span className="sr-only"> {d.label}</span>
           </button>
         )}
@@ -523,17 +534,32 @@ function Documents({ sh, st, onMessage }: { sh: Shipment; st: ShipmentState; onM
     );
   };
   return (
-    <Panel id="documents" title="Shipment Documents" description="Document states only — no files are uploaded or stored.">
+    <Panel
+      id="documents"
+      title="Shipment Documents"
+      description="Document states from the Document Center. Document metadata only — no files are uploaded or stored."
+      action={
+        <Link href={`${importerHref("documents")}?shipment=${sh.id}`} className={`${textLink} shrink-0`}>
+          Manage Documents
+        </Link>
+      }
+    >
+      {docs.every((d) => d.events.length === 0) && (
+        <p className="px-5 pt-2 text-sm text-ink-muted sm:px-6">Document preparation has not started yet.</p>
+      )}
       <ul className="divide-y divide-line px-5 pb-3 pt-1 sm:px-6">
-        {st.documents.map((d) => (
+        {docs.map((d) => (
           <li key={d.id} className="flex flex-col gap-2 py-3 sm:flex-row sm:items-center sm:justify-between">
             <div className="min-w-0">
-              <p className="text-sm font-medium text-ink">{d.label}</p>
-              <p className="text-xs text-ink-faint">
-                <span className={d.status === "approved" || d.status === "available" ? "font-medium text-teal" : "text-ink-muted"}>{DOCUMENT_STATUS_LABEL[d.status]}</span>
-                {" · "}From {d.source.replace("-", " ")} · Updated {formatDate(d.updatedAt)}
+              <p className="text-sm font-medium text-ink">
+                <Link href={importerHref(`documents/${d.id}`)} className={`rounded hover:text-teal hover:underline ${focusRing}`}>{d.label}</Link>
               </p>
-              {d.note && <p className="text-xs text-ink-muted">{d.note}</p>}
+              <p className="text-xs text-ink-faint">
+                <span className={d.complete ? "font-medium text-teal" : "text-ink-muted"}>{DOCUMENT_STATUS_LABEL[d.status]}</span>
+                {(d.validity === "expired" || d.validity === "expiring-soon") && <span className="font-medium text-orange"> · {VALIDITY_LABEL[d.validity]}</span>}
+                {" · "}From {DOCUMENT_SOURCE_LABEL[d.source].toLowerCase()} · Updated {formatDate(d.updatedAt)}
+              </p>
+              {d.requirement.level === "not-required" && <p className="text-xs text-ink-muted">{d.requirement.reason}</p>}
             </div>
             {actions(d)}
           </li>
@@ -616,11 +642,12 @@ function Freight({ sh, st, onMessage }: { sh: Shipment; st: ShipmentState; onMes
   );
 }
 
-function Customs({ sh, st, customs }: { sh: Shipment; st: ShipmentState; customs: ReturnType<typeof customsStatus> }) {
-  const doc = (type: ShipmentDocument["type"]) => st.documents.find((d) => d.type === type);
-  const docStatus = (type: ShipmentDocument["type"]) => {
+function Customs({ sh, st, docs, customs }: { sh: Shipment; st: ShipmentState; docs: TradeDocument[]; customs: ReturnType<typeof customsStatus> }) {
+  const doc = (type: TradeDocument["type"]) => docs.find((d) => d.type === type);
+  const docStatus = (type: TradeDocument["type"]) => {
     const d = doc(type);
-    return d ? DOCUMENT_STATUS_LABEL[d.status] : "—";
+    if (!d) return "—";
+    return d.validity === "expired" && !d.complete && d.status !== "not-required" ? `${DOCUMENT_STATUS_LABEL[d.status]} (expired)` : DOCUMENT_STATUS_LABEL[d.status];
   };
   const fromDemo = sh.events.some((e) => e.type === "customs-updated" && e.demo);
   const historical = !fromDemo && !!st.customsEvent;
@@ -668,4 +695,31 @@ function Customs({ sh, st, customs }: { sh: Shipment; st: ShipmentState; customs
       </div>
     </Panel>
   );
+}
+
+interface FeedItem {
+  id: string;
+  at: string;
+  text: string;
+  party: string;
+  byYou: boolean;
+  demo?: boolean;
+  note?: string;
+}
+
+/** Shipment events plus this shipment's document events, newest first. */
+function activityFeed(sh: Shipment, docs: readonly TradeDocument[]): FeedItem[] {
+  const shipmentItems = sh.events.map<FeedItem>((e) => ({ id: e.id, at: e.at, text: describeEvent(e), party: eventParty(e), byYou: e.by === "importer", demo: e.demo, note: e.note }));
+  const documentItems = docs.flatMap((d) =>
+    d.events.map<FeedItem>((e) => ({
+      id: e.id,
+      at: e.at,
+      text: describeDocumentEvent(e, d.label),
+      party: e.by === "importer" ? "You" : e.by === "system" ? "XimVerse" : DOCUMENT_SOURCE_LABEL[e.by],
+      byYou: e.by === "importer",
+      demo: e.demo,
+      note: e.note,
+    })),
+  );
+  return [...shipmentItems, ...documentItems].sort((a, b) => b.at.localeCompare(a.at));
 }

@@ -25,6 +25,7 @@ import { findOpportunity, type BuyerOpportunity } from "./exporter-opportunities
 import { SEEDED_QUOTATIONS } from "./exporter-quotation-history";
 import {
   defaultCoverage,
+  formatMoney,
   type ComplianceResponse,
   type CostCoverage,
   type ExporterQuotation,
@@ -334,7 +335,7 @@ export function dealReadiness(d: ExporterDeal): number {
 /** Rule-based SUMIT notes. No AI. */
 export function dealInsights(d: ExporterDeal): string[] {
   const t = d.terms;
-  const price = new Intl.NumberFormat("en-US", { style: "currency", currency: t.currency, maximumFractionDigits: 2 }).format(t.unitPrice);
+  const price = formatMoney(Math.round(t.unitPrice * 100), t.currency);
   const out = [
     `The commercial agreement is complete at ${price} / ${t.quantity.unit} for ${t.quantity.amount.toLocaleString("en-US")} ${t.quantity.unit}. Before execution, confirm the payment instrument (${t.paymentSummary}) and create the operational order.`,
   ];

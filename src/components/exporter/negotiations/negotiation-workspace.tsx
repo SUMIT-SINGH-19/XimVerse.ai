@@ -36,6 +36,8 @@ import {
 } from "@/lib/exporter-negotiation-store";
 import { useIsClient } from "@/lib/exporter-quotation-store";
 import { CounterForm } from "./counter-form";
+import { SetUpDealAction } from "@/components/exporter/deals/set-up-deal";
+import { SEEDED_QUOTATIONS } from "@/lib/exporter-quotation-history";
 import { NegotiationHistory } from "./negotiation-history";
 import { NegotiationStatusPill, OfferComparison } from "./negotiation-ui";
 
@@ -93,6 +95,7 @@ export function NegotiationWorkspace({
   const [notice, setNotice] = useState<string | null>(null);
 
   if (!n) return null;
+  const quotation = SEEDED_QUOTATIONS.find((q) => q.id === n.quotationId);
   const status = negotiationStatus(n);
   const yours = yourCurrentOffer(n);
   const buyer = buyerLatestOffer(n);
@@ -184,13 +187,15 @@ export function NegotiationWorkspace({
                 <Handshake className="size-5 text-teal" aria-hidden />
                 Commercial terms agreed
               </p>
-              <p className="mt-1 text-sm text-ink-muted">These terms are the basis for the deal. Next step: deal setup (coming next).</p>
+              <p className="mt-1 text-sm text-ink-muted">These terms are the basis for the deal. Next step: set up the deal.</p>
               <div className="mt-4">
                 <TermsTable offer={agreed} />
               </div>
-              <button type="button" disabled className="mt-4 inline-flex h-10 cursor-not-allowed items-center rounded-lg border border-line bg-surface px-4 text-sm font-semibold text-ink-faint">
-                Set Up Deal — coming next
-              </button>
+              {quotation && (
+                <div className="mt-4">
+                  <SetUpDealAction quotation={quotation} negotiation={n} />
+                </div>
+              )}
             </section>
           )}
 

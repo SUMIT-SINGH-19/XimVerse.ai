@@ -28,10 +28,10 @@ import {
 } from "@/lib/exporter-negotiations";
 import { presentedStatus } from "@/lib/exporter-quotation-pipeline";
 import { QuotationStatusPill } from "./quotation-ui";
+import { SetUpDealAction } from "@/components/exporter/deals/set-up-deal";
 
 const money = (amount: number, q: ExporterQuotation) => formatMoney(Math.round(amount * 100), q.price.currency);
 
-const disabledAction = "inline-flex h-10 cursor-not-allowed items-center gap-2 rounded-lg border border-line px-4 text-sm font-semibold text-ink-faint";
 const linkAction = `inline-flex h-10 items-center gap-2 rounded-lg bg-orange px-4 text-sm font-semibold text-on-brand shadow-sm shadow-orange/20 transition hover:brightness-95 ${focusRing}`;
 
 function Banner({
@@ -136,7 +136,7 @@ function StatusContext({ q, negotiation }: { q: ExporterQuotation; negotiation?:
             This quotation is ready to become a deal and order.
           </p>
           <div className="flex flex-wrap items-center gap-3">
-            <button type="button" disabled className={disabledAction}>Deal setup coming next</button>
+            <SetUpDealAction quotation={q} negotiation={negotiation} />
             {negHref && (
               <Link href={negHref} className={`text-sm font-semibold text-teal hover:text-ink ${focusRing}`}>
                 View agreement

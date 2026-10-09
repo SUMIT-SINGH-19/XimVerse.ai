@@ -8,7 +8,8 @@
  */
 
 import { BUYER_OPPORTUNITIES, isOpen, opportunitySummary } from "./exporter-opportunities";
-import { buildPipeline, pipelineSummary } from "./exporter-quotation-pipeline";
+import { buildPipeline, formatCompactMoney, pipelineSummary } from "./exporter-quotation-pipeline";
+import { dealStatus, dealValueMinor, isActiveDeal, SEEDED_DEALS } from "./exporter-deals";
 
 // ---------------------------------------------------------------------------
 // Buyer opportunities (dataset lives in exporter-opportunities.ts)
@@ -38,6 +39,14 @@ const SEEDED_ROWS = buildPipeline([], {});
 export const RECENT_QUOTATION_ROWS = SEEDED_ROWS.toSorted((a, b) => b.activityAt.localeCompare(a.activityAt)).slice(0, 3);
 
 const QUOTE_SUMMARY = pipelineSummary(SEEDED_ROWS);
+
+// Seeded deals only: the dashboard is prerendered, so deals created in this
+// browser show on the Deals page but not here.
+const ACTIVE_DEALS = SEEDED_DEALS.filter((d) => isActiveDeal(dealStatus(d)));
+const DEAL_VALUE_BY_CURRENCY = ACTIVE_DEALS.reduce<Record<string, number>>((acc, d) => {
+  acc[d.terms.currency] = (acc[d.terms.currency] ?? 0) + dealValueMinor(d.terms);
+  return acc;
+}, {});
 
 // ---------------------------------------------------------------------------
 // Orders
@@ -105,7 +114,15 @@ export const EXPORTER_KPIS: readonly ExporterKpi[] = [
     detail: `${QUOTE_SUMMARY.byStatus.submitted + QUOTE_SUMMARY.byStatus["under-review"]} awaiting response`,
     slug: "quotations",
   },
-  { key: "deals", label: "Active Deals", value: "5", detail: "₹28.4L potential value", slug: "deals" },
+  {
+    key: "deals",
+    label: "Active Deals",
+    value: String(ACTIVE_DEALS.length),
+    detail: Object.entries(DEAL_VALUE_BY_CURRENCY)
+      .map(([c, minor]) => formatCompactMoney(minor, c as "USD"))
+      .join(" · ") + " contract value",
+    slug: "deals",
+  },
   { key: "orders", label: "Active Orders", value: "3", detail: "2 require action", emphasis: true, slug: "orders" },
   { key: "revenue", label: "Revenue", value: "₹42.6L", detail: "This month", slug: "analytics" },
 ];

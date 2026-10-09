@@ -35,7 +35,7 @@ export function ProductList({
 }) {
   return (
     <>
-      <div className="hidden overflow-x-auto xl:block">
+      <div className="relative hidden overflow-x-auto xl:block">
         <table className="w-full min-w-[62rem] text-sm">
           <thead className="border-y border-line bg-canvas/60">
             <tr>

@@ -31,7 +31,7 @@ export const EMPTY_FILTERS: CatalogueFilterState = {
 const control =
   "h-9 rounded-lg border border-line bg-canvas px-2.5 text-sm text-ink transition-colors focus:border-teal focus:bg-surface focus:outline-none focus:ring-2 focus:ring-teal/20";
 
-function Select<T extends string>({
+export function Select<T extends string>({
   label,
   value,
   onChange,

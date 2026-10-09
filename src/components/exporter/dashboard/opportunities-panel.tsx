@@ -1,48 +1,23 @@
 import Link from "next/link";
 import { ArrowRight, CalendarDays, MapPin } from "lucide-react";
 import { Panel } from "@/components/workspace/panel";
-import { StatusPill, type PillTone } from "@/components/workspace/status-pill";
 import { focusRing } from "@/components/workspace/styles";
+import { MatchScore, OpportunityStatusPill } from "@/components/exporter/opportunities/opportunity-ui";
 import { exporterHref } from "@/lib/exporter-nav";
+import { formatDate } from "@/lib/exporter-dashboard";
 import {
-  formatDate,
-  formatQuantity,
-  OPPORTUNITY_STATUS_LABEL,
+  formatIncoterm,
+  formatOpportunityQuantity,
+  shortCountry,
   type BuyerOpportunity,
-  type OpportunityStatus,
-} from "@/lib/exporter-dashboard";
+} from "@/lib/exporter-opportunities";
 
-const STATUS_TONE: Record<OpportunityStatus, PillTone> = {
-  new: "accent",
-  viewed: "neutral",
-  quoted: "brand",
-};
-
-// Opportunity detail pages don't exist yet; every action lands on the list.
-const opportunityHref = exporterHref("opportunities");
-
-function MatchScore({ score }: { score: number }) {
-  return (
-    <div className="flex items-center gap-2">
-      <span
-        role="meter"
-        aria-label="Match score"
-        aria-valuemin={0}
-        aria-valuemax={100}
-        aria-valuenow={score}
-        className="h-1.5 w-12 overflow-hidden rounded-full bg-teal-soft"
-      >
-        <span className="block h-full rounded-full bg-teal" style={{ width: `${score}%` }} />
-      </span>
-      <span className="whitespace-nowrap text-sm font-semibold text-teal">{score}% Match</span>
-    </div>
-  );
-}
+const listHref = exporterHref("opportunities");
 
 function ViewLink({ rfqId, className = "" }: { rfqId: string; className?: string }) {
   return (
     <Link
-      href={opportunityHref}
+      href={exporterHref(`opportunities/${rfqId}`)}
       aria-label={`View opportunity ${rfqId}`}
       className={`inline-flex items-center gap-1 whitespace-nowrap rounded-lg border border-line px-3 py-1.5 text-sm font-semibold text-teal transition-colors hover:border-teal hover:bg-teal-soft ${focusRing} ${className}`}
     >
@@ -65,11 +40,11 @@ export function OpportunitiesPanel({ opportunities }: { opportunities: readonly 
     <Panel
       title="Buyer Opportunities"
       description="Buyer requirements matched with your products and export capabilities."
-      action={{ label: "View all", href: opportunityHref }}
+      action={{ label: "View all", href: listHref }}
       bodyClassName="pt-4 pb-2"
     >
       {/* Wide screens: table. */}
-      <div className="hidden overflow-x-auto md:block">
+      <div className="relative hidden overflow-x-auto md:block">
         <table className="w-full min-w-[60rem] text-sm">
           <thead className="border-y border-line bg-canvas/60">
             <tr>
@@ -89,20 +64,18 @@ export function OpportunitiesPanel({ opportunities }: { opportunities: readonly 
                 <td className={td}>
                   <p className="whitespace-nowrap font-mono text-xs text-ink-muted">{o.rfqId}</p>
                   <p className="mt-1.5">
-                    <StatusPill tone={STATUS_TONE[o.status]}>{OPPORTUNITY_STATUS_LABEL[o.status]}</StatusPill>
+                    <OpportunityStatusPill status={o.status} />
                   </p>
                 </td>
-                <td className={`${td} min-w-44`}>
-                  <p className="font-semibold text-ink">{o.product}</p>
-                  {o.specification && <p className="mt-0.5 text-xs text-ink-muted">{o.specification}</p>}
+                <td className={`${td} min-w-44 max-w-64`}>
+                  <p className="font-semibold text-ink">{o.product.name}</p>
+                  <p className="mt-0.5 line-clamp-1 text-xs text-ink-muted">{o.product.specification}</p>
                 </td>
-                <td className={`${td} whitespace-nowrap text-ink`}>{o.buyerCountry}</td>
-                <td className={`${td} whitespace-nowrap text-ink`}>{formatQuantity(o.quantity)}</td>
-                <td className={`${td} whitespace-nowrap text-ink`}>
-                  <span className="font-semibold">{o.incoterm.term}</span> {o.incoterm.place}
-                </td>
-                <td className={`${td} whitespace-nowrap text-ink`}>{formatDate(o.requiredBy)}</td>
-                <td className={td}><MatchScore score={o.matchScore} /></td>
+                <td className={`${td} whitespace-nowrap text-ink`}>{shortCountry(o.delivery.destinationCountry)}</td>
+                <td className={`${td} whitespace-nowrap text-ink`}>{formatOpportunityQuantity(o.quantity)}</td>
+                <td className={`${td} whitespace-nowrap text-ink`}>{formatIncoterm(o.delivery)}</td>
+                <td className={`${td} whitespace-nowrap text-ink`}>{formatDate(o.delivery.requiredBy)}</td>
+                <td className={td}><MatchScore score={o.match.score} /></td>
                 <td className={`${td} text-right`}><ViewLink rfqId={o.rfqId} /></td>
               </tr>
             ))}
@@ -117,38 +90,36 @@ export function OpportunitiesPanel({ opportunities }: { opportunities: readonly 
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
                 <p className="font-mono text-xs text-ink-muted">{o.rfqId}</p>
-                <p className="mt-0.5 font-semibold text-ink">{o.product}</p>
+                <p className="mt-0.5 font-semibold text-ink">{o.product.name}</p>
               </div>
-              <StatusPill tone={STATUS_TONE[o.status]}>{OPPORTUNITY_STATUS_LABEL[o.status]}</StatusPill>
+              <OpportunityStatusPill status={o.status} />
             </div>
             <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
               <div>
                 <dt className="sr-only">Destination</dt>
                 <dd className="flex items-center gap-1.5 text-ink">
                   <MapPin className="size-3.5 text-ink-faint" aria-hidden />
-                  {o.buyerCountry}
+                  {shortCountry(o.delivery.destinationCountry)}
                 </dd>
               </div>
               <div>
                 <dt className="sr-only">Required by</dt>
                 <dd className="flex items-center gap-1.5 text-ink">
                   <CalendarDays className="size-3.5 text-ink-faint" aria-hidden />
-                  {formatDate(o.requiredBy)}
+                  {formatDate(o.delivery.requiredBy)}
                 </dd>
               </div>
               <div>
                 <dt className="sr-only">Quantity</dt>
-                <dd className="text-ink">{formatQuantity(o.quantity)}</dd>
+                <dd className="text-ink">{formatOpportunityQuantity(o.quantity)}</dd>
               </div>
               <div>
                 <dt className="sr-only">Incoterm</dt>
-                <dd className="text-ink">
-                  <span className="font-semibold">{o.incoterm.term}</span> {o.incoterm.place}
-                </dd>
+                <dd className="text-ink">{formatIncoterm(o.delivery)}</dd>
               </div>
             </dl>
             <div className="mt-3 flex items-center justify-between gap-3">
-              <MatchScore score={o.matchScore} />
+              <MatchScore score={o.match.score} />
               <ViewLink rfqId={o.rfqId} />
             </div>
           </li>

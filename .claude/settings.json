@@ -1,0 +1,17 @@
+{
+  "hooks": {
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "shell": "powershell",
+            "command": "powershell -NoProfile -ExecutionPolicy Bypass -File \"$env:CLAUDE_PROJECT_DIR\\.claude\\hooks\\auto-commit.ps1\"",
+            "timeout": 120,
+            "statusMessage": "Checkpointing to GitHub..."
+          }
+        ]
+      }
+    ]
+  }
+}

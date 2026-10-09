@@ -18,7 +18,7 @@ export function ImporterTopbar({
   const page = importerPageForPath(usePathname());
 
   return (
-    <header className="sticky top-0 z-30 border-b border-line bg-surface/90 backdrop-blur supports-backdrop-filter:bg-surface/80">
+    <header className="sticky top-0 z-30 border-b print:hidden border-line bg-surface/90 backdrop-blur supports-backdrop-filter:bg-surface/80">
       <div className="flex flex-wrap items-center gap-x-3 gap-y-3 px-4 py-3 sm:px-6 lg:flex-nowrap lg:px-8">
         <button
           ref={menuButtonRef}

@@ -2,11 +2,16 @@
 
 import { createContext, useCallback, useContext, useMemo, useState } from "react";
 import { MOCK_REQUIREMENTS, nextRequirementId, type ImportRequirement } from "@/lib/import-requirements";
+import { agreementFor } from "@/lib/importer-negotiations";
+import { useNegotiations } from "../negotiations/negotiation-store";
 
 /*
  * Requirements for the importer workspace, held in memory for this browser tab.
  * It starts from the mock data; requirements created in the UI are added here
  * and are lost on reload. Replace with API calls once a backend exists.
+ *
+ * Supplier selection is not stored here: a requirement with an agreed
+ * negotiation is presented as "Supplier Selected" with its `selection`.
  */
 
 interface RequirementsStore {
@@ -20,7 +25,22 @@ interface RequirementsStore {
 const RequirementsContext = createContext<RequirementsStore | null>(null);
 
 export function ImportRequirementsProvider({ children }: { children: React.ReactNode }) {
-  const [requirements, setRequirements] = useState<readonly ImportRequirement[]>(MOCK_REQUIREMENTS);
+  const [stored, setRequirements] = useState<readonly ImportRequirement[]>(MOCK_REQUIREMENTS);
+  const negotiations = useNegotiations();
+  const requirements = useMemo(
+    () =>
+      stored.map((r) => {
+        const agreed = agreementFor(r.id, negotiations);
+        return agreed
+          ? {
+              ...r,
+              status: "supplier-selected" as const,
+              selection: { negotiationId: agreed.id, quotationId: agreed.quotationId, supplierId: agreed.supplierId },
+            }
+          : r;
+      }),
+    [stored, negotiations],
+  );
 
   const save = useCallback((requirement: ImportRequirement) => {
     setRequirements((current) => {

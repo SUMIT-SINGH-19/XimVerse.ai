@@ -72,3 +72,13 @@ body {
     }
   }
 }
+
+/* Printing (e.g. purchase orders): plain white page. */
+@media print {
+  body {
+    background: #fff;
+  }
+  @page {
+    margin: 16mm;
+  }
+}

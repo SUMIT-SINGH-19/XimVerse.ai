@@ -7,199 +7,37 @@
  * same shapes.
  */
 
+import { BUYER_OPPORTUNITIES, isOpen, opportunitySummary } from "./exporter-opportunities";
+import { buildPipeline, pipelineSummary } from "./exporter-quotation-pipeline";
+
 // ---------------------------------------------------------------------------
-// Buyer opportunities
+// Buyer opportunities (dataset lives in exporter-opportunities.ts)
 // ---------------------------------------------------------------------------
 
-/**
- * A buyer requirement (RFQ) as an exporter sees it.
- *
- * Ximverse brokers the buyer relationship, so this type deliberately has no
- * buyer name, email, phone or contact person — only what an exporter needs to
- * decide whether and how to quote. Keep it that way: identity is released by
- * Ximverse at the appropriate stage, and must ultimately be withheld by the
- * backend, not just left out of the UI.
- */
-export interface BuyerOpportunity {
-  rfqId: string;
-  product: string;
-  /** Grade, packing and similar detail, if the buyer gave any. */
-  specification?: string;
-  buyerCountry: string;
-  /** Buyer's industry / market segment, e.g. "Food distribution". */
-  buyerMarket?: string;
-  quantity: Quantity;
-  incoterm: Incoterm;
-  /** ISO date (YYYY-MM-DD) the buyer needs delivery by. */
-  requiredBy: string;
-  paymentPreference?: string;
-  certifications?: readonly string[];
-  /** 0–100: how well the requirement fits this exporter's profile. */
-  matchScore: number;
-  status: OpportunityStatus;
-}
+/** The dashboard's shortlist: open opportunities, best match first. */
+export const TOP_OPPORTUNITIES = BUYER_OPPORTUNITIES.filter(isOpen)
+  .sort((a, b) => b.match.score - a.match.score)
+  .slice(0, 5);
 
-export type OpportunityStatus = "new" | "viewed" | "quoted";
-
-export const OPPORTUNITY_STATUS_LABEL: Record<OpportunityStatus, string> = {
-  new: "New",
-  viewed: "Viewed",
-  quoted: "Quoted",
-};
-
+/** Exporter capacity figures. MT only for now — see OpportunityQuantity for buyer-side units. */
 export interface Quantity {
   value: number;
   unit: "MT";
 }
 
-export interface Incoterm {
-  term: "EXW" | "FOB" | "CFR" | "CIF" | "DAP";
-  /** Named port or place, e.g. "Jebel Ali". */
-  place: string;
-}
-
-export const BUYER_OPPORTUNITIES: readonly BuyerOpportunity[] = [
-  {
-    rfqId: "RFQ-XM-1042",
-    product: "Basmati Rice",
-    specification: "1121 Steam, 25 kg bags",
-    buyerCountry: "UAE",
-    buyerMarket: "Food distribution",
-    quantity: { value: 100, unit: "MT" },
-    incoterm: { term: "CIF", place: "Jebel Ali" },
-    requiredBy: "2026-10-20",
-    paymentPreference: "LC at sight",
-    certifications: ["HACCP", "Phytosanitary"],
-    matchScore: 96,
-    status: "new",
-  },
-  {
-    rfqId: "RFQ-XM-1041",
-    product: "1121 Basmati Rice",
-    specification: "Sella, 40 kg bags",
-    buyerCountry: "Saudi Arabia",
-    buyerMarket: "Wholesale",
-    quantity: { value: 250, unit: "MT" },
-    incoterm: { term: "CFR", place: "Jeddah" },
-    requiredBy: "2026-10-28",
-    paymentPreference: "30% advance, 70% against documents",
-    certifications: ["SFDA registration"],
-    matchScore: 92,
-    status: "new",
-  },
-  {
-    rfqId: "RFQ-XM-1038",
-    product: "Non-Basmati Rice",
-    specification: "IR64 parboiled, 5% broken",
-    buyerCountry: "United Kingdom",
-    buyerMarket: "Retail",
-    quantity: { value: 80, unit: "MT" },
-    incoterm: { term: "CIF", place: "Felixstowe" },
-    requiredBy: "2026-11-05",
-    paymentPreference: "LC 30 days",
-    certifications: ["BRCGS"],
-    matchScore: 88,
-    status: "viewed",
-  },
-  {
-    rfqId: "RFQ-XM-1034",
-    product: "Organic Coconut",
-    specification: "Desiccated, fine grade",
-    buyerCountry: "Germany",
-    buyerMarket: "Food manufacturing",
-    quantity: { value: 50, unit: "MT" },
-    incoterm: { term: "CIF", place: "Hamburg" },
-    requiredBy: "2026-11-12",
-    paymentPreference: "CAD",
-    certifications: ["EU Organic", "ISO 22000"],
-    matchScore: 84,
-    status: "new",
-  },
-  {
-    rfqId: "RFQ-XM-1029",
-    product: "Coconut Products",
-    specification: "Virgin coconut oil and copra",
-    buyerCountry: "USA",
-    buyerMarket: "Health foods",
-    quantity: { value: 120, unit: "MT" },
-    incoterm: { term: "FOB", place: "Mundra" },
-    requiredBy: "2026-11-18",
-    paymentPreference: "TT 50/50",
-    certifications: ["FDA registration", "USDA Organic"],
-    matchScore: 81,
-    status: "viewed",
-  },
-];
-
 // ---------------------------------------------------------------------------
-// Quotations
+// Quotations (seeded history lives in exporter-quotation-history.ts)
 // ---------------------------------------------------------------------------
 
-export type QuotationStatus =
-  | "draft"
-  | "submitted"
-  | "under-review"
-  | "shortlisted"
-  | "negotiation"
-  | "won"
-  | "lost";
+const SEEDED_ROWS = buildPipeline([], {});
 
-export const QUOTATION_STATUS_LABEL: Record<QuotationStatus, string> = {
-  draft: "Draft",
-  submitted: "Submitted",
-  "under-review": "Under Review",
-  shortlisted: "Shortlisted",
-  negotiation: "Negotiation",
-  won: "Won",
-  lost: "Lost",
-};
+/**
+ * Latest seeded quotations for the dashboard. Prerendered, so quotations
+ * created in this browser appear on My Quotations rather than here.
+ */
+export const RECENT_QUOTATION_ROWS = SEEDED_ROWS.toSorted((a, b) => b.activityAt.localeCompare(a.activityAt)).slice(0, 3);
 
-export interface Money {
-  amount: number;
-  currency: "USD" | "EUR" | "INR";
-}
-
-export interface QuotationSummary {
-  quotationId: string;
-  product: string;
-  destinationCountry: string;
-  /** Price per unit of `quantity`. */
-  price: Money;
-  quantity: Quantity;
-  /** ISO date the quote was submitted. */
-  submittedOn: string;
-  status: QuotationStatus;
-}
-
-export const RECENT_QUOTATIONS: readonly QuotationSummary[] = [
-  {
-    quotationId: "QT-2041",
-    product: "Basmati Rice",
-    destinationCountry: "UAE",
-    price: { amount: 1080, currency: "USD" },
-    quantity: { value: 100, unit: "MT" },
-    submittedOn: "2026-10-06",
-    status: "shortlisted",
-  },
-  {
-    quotationId: "QT-2037",
-    product: "Rice",
-    destinationCountry: "Saudi Arabia",
-    price: { amount: 1025, currency: "USD" },
-    quantity: { value: 200, unit: "MT" },
-    submittedOn: "2026-10-04",
-    status: "under-review",
-  },
-  {
-    quotationId: "QT-2028",
-    product: "Organic Coconut",
-    destinationCountry: "Germany",
-    price: { amount: 920, currency: "EUR" },
-    quantity: { value: 40, unit: "MT" },
-    submittedOn: "2026-10-01",
-    status: "negotiation",
-  },
-];
+const QUOTE_SUMMARY = pipelineSummary(SEEDED_ROWS);
 
 // ---------------------------------------------------------------------------
 // Orders
@@ -249,9 +87,24 @@ export interface ExporterKpi {
   slug: string;
 }
 
+const OPEN_SUMMARY = opportunitySummary(BUYER_OPPORTUNITIES);
+
 export const EXPORTER_KPIS: readonly ExporterKpi[] = [
-  { key: "opportunities", label: "Buyer Opportunities", value: "12", detail: "+4 new today", emphasis: true, slug: "opportunities" },
-  { key: "quotations", label: "Quotations Submitted", value: "8", detail: "3 awaiting response", slug: "quotations" },
+  {
+    key: "opportunities",
+    label: "Buyer Opportunities",
+    value: String(OPEN_SUMMARY.open),
+    detail: `${OPEN_SUMMARY.newCount} new`,
+    emphasis: true,
+    slug: "opportunities",
+  },
+  {
+    key: "quotations",
+    label: "Active Quotations",
+    value: String(QUOTE_SUMMARY.active),
+    detail: `${QUOTE_SUMMARY.byStatus.submitted + QUOTE_SUMMARY.byStatus["under-review"]} awaiting response`,
+    slug: "quotations",
+  },
   { key: "deals", label: "Active Deals", value: "5", detail: "₹28.4L potential value", slug: "deals" },
   { key: "orders", label: "Active Orders", value: "3", detail: "2 require action", emphasis: true, slug: "orders" },
   { key: "revenue", label: "Revenue", value: "₹42.6L", detail: "This month", slug: "analytics" },
@@ -298,14 +151,4 @@ export function formatDate(iso: string): string {
 
 export function formatQuantity({ value, unit }: Quantity): string {
   return `${value.toLocaleString("en-IN")} ${unit}`;
-}
-
-/** e.g. "$1,080 / MT". */
-export function formatUnitPrice({ amount, currency }: Money, unit: Quantity["unit"]): string {
-  const price = new Intl.NumberFormat(currency === "INR" ? "en-IN" : "en-US", {
-    style: "currency",
-    currency,
-    maximumFractionDigits: 0,
-  }).format(amount);
-  return `${price} / ${unit}`;
 }

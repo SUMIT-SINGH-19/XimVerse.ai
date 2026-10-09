@@ -43,7 +43,7 @@ export function ImporterShell({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="flex min-h-dvh flex-1">
-      <aside className="sticky top-0 hidden h-dvh w-64 shrink-0 border-r border-line bg-surface lg:block">
+      <aside className="sticky top-0 hidden h-dvh w-64 shrink-0 border-r border-line bg-surface lg:block print:hidden">
         <ImporterSidebar />
       </aside>
 
@@ -76,7 +76,7 @@ export function ImporterShell({ children }: { children: React.ReactNode }) {
 
       <div className="flex min-w-0 flex-1 flex-col">
         <ImporterTopbar onOpenMenu={() => setMenuOpen(true)} menuButtonRef={menuButtonRef} />
-        <main id="importer-main" className="flex-1 px-4 py-8 sm:px-6 lg:px-8 lg:py-10">
+        <main id="importer-main" className="flex-1 px-4 py-8 sm:px-6 lg:px-8 lg:py-10 print:p-0">
           <div className="mx-auto w-full max-w-7xl">{children}</div>
         </main>
       </div>

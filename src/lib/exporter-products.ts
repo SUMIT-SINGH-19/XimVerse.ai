@@ -364,6 +364,19 @@ export const EXPORTER_PRODUCTS: readonly ExporterProduct[] = [
   },
 ];
 
+/**
+ * What other exporter screens need to reference a product. Leaves out the
+ * internal price band and the rest of the profile.
+ */
+export type ProductSummary = Pick<
+  ExporterProduct,
+  "id" | "name" | "productCode" | "hsCode" | "origin" | "status" | "supply" | "readiness"
+>;
+
+export function toProductSummary({ id, name, productCode, hsCode, origin, status, supply, readiness }: ExporterProduct): ProductSummary {
+  return { id, name, productCode, hsCode, origin, status, supply, readiness };
+}
+
 // ---------------------------------------------------------------------------
 // Derived values and filter options
 // ---------------------------------------------------------------------------

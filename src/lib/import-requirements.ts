@@ -181,7 +181,13 @@ export interface ImportRequirement {
   additionalNotes?: string;
   /** Never leaves the importer's organisation. */
   internalNotes?: string;
+  /** Mirrors the number of quotations in importer-quotations.ts for mock data. */
   quotationCount: number;
+  /**
+   * The supplier chosen for this requirement. Never stored: derived from the
+   * agreed negotiation (see ImportRequirementsProvider).
+   */
+  selection?: { negotiationId: string; quotationId: string; supplierId: string };
   activity: RequirementActivity[];
 }
 
@@ -350,7 +356,7 @@ export const MOCK_REQUIREMENTS: readonly ImportRequirement[] = [
       specification: "30s combed cotton yarn for knitting, 100% cotton, compact spun.",
       hsCode: "5205.24",
     },
-    quantity: { amount: 40, unit: "MT" },
+    quantity: { amount: 40_000, unit: "KG" },
     delivery: {
       destinationCountry: "Bangladesh",
       destinationLocation: "Chittagong, Bangladesh",
@@ -361,7 +367,7 @@ export const MOCK_REQUIREMENTS: readonly ImportRequirement[] = [
     quality: { certifications: ["Certificate of Origin"], packaging: "Cartons on pallets." },
     supplierPreferences: NO_PREFERENCES,
     attachments: [],
-    quotationCount: 5,
+    quotationCount: 3,
     activity: [
       { id: "a1", at: "2026-09-26T10:00:00Z", message: "Supplier selected" },
       { id: "a2", at: "2026-08-31T06:00:00Z", message: "Requirement published" },
@@ -390,11 +396,129 @@ export const MOCK_REQUIREMENTS: readonly ImportRequirement[] = [
     quality: { certifications: ["Certificate of Origin", "Inspection Certificate"] },
     supplierPreferences: { preferredRegions: "China", manufacturerRequired: true, tradersAcceptable: false },
     attachments: [],
-    quotationCount: 6,
+    quotationCount: 0,
     activity: [
-      { id: "a1", at: "2026-08-20T09:45:00Z", message: "Requirement closed" },
+      { id: "a1", at: "2026-08-20T09:45:00Z", message: "Requirement closed — no quotations received" },
       { id: "a2", at: "2026-07-15T04:00:00Z", message: "Requirement published" },
       { id: "a3", at: "2026-07-14T05:00:00Z", message: "Requirement created" },
+    ],
+  },
+
+  /* Earlier sourcing rounds, each completed through an agreed negotiation and
+     turned into an order (see importer-orders.ts). */
+  {
+    id: "RFQ-2026-0042",
+    status: "supplier-selected",
+    createdAt: "2026-08-25T06:00:00Z",
+    updatedAt: "2026-09-18T08:00:00Z",
+    product: {
+      name: "Refined Soybean Oil",
+      category: "Agriculture & Food",
+      specification: "Refined, bleached, deodorised soybean oil. FFA 0.1% max.",
+      hsCode: "1507.90",
+    },
+    quantity: { amount: 200, unit: "MT" },
+    delivery: { destinationCountry: "India", destinationLocation: "Mumbai, India", requiredBy: "2026-12-05", incoterm: "FOB" },
+    commercial: { paymentTerms: "lc" },
+    quality: { certifications: ["Certificate of Origin", "Health Certificate"], packaging: "Flexitanks in 20 ft containers." },
+    supplierPreferences: NO_PREFERENCES,
+    attachments: [],
+    quotationCount: 1,
+    activity: [
+      { id: "a1", at: "2026-09-18T08:00:00Z", message: "Supplier selected" },
+      { id: "a2", at: "2026-08-25T06:00:00Z", message: "Requirement created" },
+    ],
+  },
+  {
+    id: "RFQ-2026-0041",
+    status: "supplier-selected",
+    createdAt: "2026-08-10T05:30:00Z",
+    updatedAt: "2026-09-02T09:00:00Z",
+    product: {
+      name: "Red Lentils",
+      category: "Agriculture & Food",
+      specification: "Red lentils (masoor), split, machine cleaned and sortexed.",
+      hsCode: "0713.40",
+    },
+    quantity: { amount: 100, unit: "MT" },
+    delivery: { destinationCountry: "India", destinationLocation: "Nhava Sheva, India", requiredBy: "2026-11-15", incoterm: "CIF" },
+    commercial: { paymentTerms: "lc" },
+    quality: { certifications: ["Certificate of Origin", "Phytosanitary Certificate"], packaging: "50 kg PP bags." },
+    supplierPreferences: NO_PREFERENCES,
+    attachments: [],
+    quotationCount: 1,
+    activity: [
+      { id: "a1", at: "2026-09-02T09:00:00Z", message: "Supplier selected" },
+      { id: "a2", at: "2026-08-10T05:30:00Z", message: "Requirement created" },
+    ],
+  },
+  {
+    id: "RFQ-2026-0040",
+    status: "supplier-selected",
+    createdAt: "2026-07-20T07:00:00Z",
+    updatedAt: "2026-08-12T10:00:00Z",
+    product: {
+      name: "Compact Cotton Yarn",
+      category: "Textiles",
+      specification: "40s combed compact cotton yarn, 100% cotton, for weaving.",
+      hsCode: "5205.26",
+    },
+    quantity: { amount: 20_000, unit: "KG" },
+    delivery: { destinationCountry: "Bangladesh", destinationLocation: "Chittagong, Bangladesh", requiredBy: "2026-10-30", incoterm: "CFR" },
+    commercial: { paymentTerms: "lc" },
+    quality: { certifications: ["Certificate of Origin"], packaging: "Cartons on pallets." },
+    supplierPreferences: { manufacturerRequired: true, tradersAcceptable: false },
+    attachments: [],
+    quotationCount: 1,
+    activity: [
+      { id: "a1", at: "2026-08-12T10:00:00Z", message: "Supplier selected" },
+      { id: "a2", at: "2026-07-20T07:00:00Z", message: "Requirement created" },
+    ],
+  },
+  {
+    id: "RFQ-2026-0039",
+    status: "supplier-selected",
+    createdAt: "2026-07-01T06:00:00Z",
+    updatedAt: "2026-07-24T08:30:00Z",
+    product: {
+      name: "Basmati Rice",
+      category: "Agriculture & Food",
+      specification: "1121 Steam Basmati Rice, average grain length 8.3 mm minimum, broken 2% max.",
+      hsCode: "1006.30",
+    },
+    quantity: { amount: 250, unit: "MT" },
+    delivery: { destinationCountry: "United Arab Emirates", destinationLocation: "Jebel Ali, UAE", requiredBy: "2026-10-20", incoterm: "FOB" },
+    commercial: { paymentTerms: "advance" },
+    quality: { certifications: ["Certificate of Origin", "Phytosanitary Certificate", "Fumigation Certificate"], packaging: "25 kg PP bags." },
+    supplierPreferences: { manufacturerRequired: true, tradersAcceptable: false },
+    attachments: [],
+    quotationCount: 1,
+    activity: [
+      { id: "a1", at: "2026-07-24T08:30:00Z", message: "Supplier selected" },
+      { id: "a2", at: "2026-07-01T06:00:00Z", message: "Requirement created" },
+    ],
+  },
+  {
+    id: "RFQ-2026-0038",
+    status: "supplier-selected",
+    createdAt: "2026-06-02T05:00:00Z",
+    updatedAt: "2026-06-18T09:00:00Z",
+    product: {
+      name: "Refined Sunflower Oil",
+      category: "Agriculture & Food",
+      specification: "Refined, deodorised, winterised sunflower oil. FFA 0.1% max.",
+      hsCode: "1512.19",
+    },
+    quantity: { amount: 100, unit: "MT" },
+    delivery: { destinationCountry: "India", destinationLocation: "Mumbai, India", requiredBy: "2026-08-25", incoterm: "CFR" },
+    commercial: { paymentTerms: "dp" },
+    quality: { certifications: ["Certificate of Origin", "Health Certificate"], packaging: "Flexitanks in 20 ft containers." },
+    supplierPreferences: NO_PREFERENCES,
+    attachments: [],
+    quotationCount: 1,
+    activity: [
+      { id: "a1", at: "2026-06-18T09:00:00Z", message: "Supplier selected" },
+      { id: "a2", at: "2026-06-02T05:00:00Z", message: "Requirement created" },
     ],
   },
 ];

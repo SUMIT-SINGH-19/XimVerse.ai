@@ -12,10 +12,10 @@ import { EXPORTER_WORKSPACE } from "@/lib/exporter-nav";
 import {
   ACTION_ITEMS,
   ACTIVE_ORDERS,
-  BUYER_OPPORTUNITIES,
   EXPORTER_KPIS,
-  RECENT_QUOTATIONS,
+  RECENT_QUOTATION_ROWS,
   SUMIT_PROMPTS,
+  TOP_OPPORTUNITIES,
 } from "@/lib/exporter-dashboard";
 
 export const metadata: Metadata = { title: "Overview" };
@@ -36,11 +36,11 @@ export default function ExporterOverviewPage() {
 
       <KpiCards kpis={EXPORTER_KPIS} />
 
-      <OpportunitiesPanel opportunities={BUYER_OPPORTUNITIES} />
+      <OpportunitiesPanel opportunities={TOP_OPPORTUNITIES} />
 
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
         <div className="min-w-0 space-y-6 xl:col-span-2">
-          <RecentQuotationsPanel quotations={RECENT_QUOTATIONS} />
+          <RecentQuotationsPanel rows={RECENT_QUOTATION_ROWS} />
           <ActiveOrdersPanel orders={ACTIVE_ORDERS} />
         </div>
         <div className="min-w-0 space-y-6">

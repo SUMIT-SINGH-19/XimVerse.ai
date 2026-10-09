@@ -18,6 +18,10 @@ import {
   supplierFacts,
 } from "./requirement-sections";
 import { useImportRequirements } from "./requirements-store";
+import { RequirementNegotiationCard } from "../negotiations/requirement-negotiation-card";
+import { quotationsFor, type Quotation, type QuotationStatus } from "@/lib/importer-quotations";
+import { useQuotationStatus } from "../quotations/quotation-status-store";
+import { compareHref, MAX_COMPARE } from "../quotations/quotations-list";
 
 const backLink = `inline-flex items-center gap-1.5 rounded-md text-sm font-medium text-ink-muted hover:text-teal ${focusRing}`;
 
@@ -81,6 +85,7 @@ function Detail({ r }: { r: ImportRequirement }) {
         <div className="min-w-0 space-y-6">
           {/* On narrow screens quotations come first; from xl they sit in the rail. */}
           <Quotations r={r} headingId="quotations-top" className="xl:hidden" />
+          <RequirementNegotiationCard requirement={r} className="xl:hidden" />
           <Section id="overview" title="Overview">
             <FactList
               facts={[
@@ -127,6 +132,7 @@ function Detail({ r }: { r: ImportRequirement }) {
 
         <div className="space-y-6">
           <Quotations r={r} headingId="quotations" className="hidden xl:block" />
+          <RequirementNegotiationCard requirement={r} className="hidden xl:block" />
           {r.internalNotes && (
             <section aria-labelledby="internal-notes" className="rounded-2xl border border-dashed border-line bg-surface p-5">
               <h2 id="internal-notes" className="flex items-center gap-2 text-sm font-semibold text-ink">
@@ -170,13 +176,16 @@ function Section({ id, title, children }: { id: string; title: string; children:
 }
 
 function Quotations({ r, headingId, className = "" }: { r: ImportRequirement; headingId: string; className?: string }) {
-  const count = r.quotationCount;
+  const statusOf = useQuotationStatus();
+  const quotes = quotationsFor(r.id);
+  const count = quotes.length;
+  const { ids: compareIds, fromShortlist } = pickForComparison(quotes, statusOf);
   const message =
     r.status === "draft"
       ? "This requirement is still a draft. Quotations can arrive once it's published."
-      : r.status === "ready"
-        ? "Supplier matching and distribution will be connected in a later step."
-        : null;
+      : r.status === "closed"
+        ? "This requirement was closed without quotations."
+        : "Supplier matching and RFQ distribution will appear here once connected.";
 
   return (
     <section
@@ -192,18 +201,47 @@ function Quotations({ r, headingId, className = "" }: { r: ImportRequirement; he
             <span className="text-3xl font-semibold tabular-nums tracking-tight">{count}</span>{" "}
             <span className="text-sm text-ink-muted">{count === 1 ? "quotation" : "quotations"} received</span>
           </p>
-          <Link href={importerHref("quotations")} className={`${primaryButton} mt-4 w-full`}>
-            View Quotations
-          </Link>
+          <div className="mt-4 flex flex-col gap-2">
+            <Link href={`${importerHref("quotations")}?requirement=${r.id}`} className={`${primaryButton} w-full`}>
+              View Quotations
+            </Link>
+            {compareIds.length >= 2 && (
+              <Link href={compareHref(compareIds)} className={`${secondaryButton} w-full`}>
+                Compare Quotations
+              </Link>
+            )}
+          </div>
+          {compareIds.length >= 2 && (
+            <p className="mt-2 text-xs text-ink-faint">
+              Compares {fromShortlist ? "your shortlisted" : "the most recent"} offers.
+            </p>
+          )}
         </>
       ) : (
         <>
-          <p className="mt-2 font-semibold text-ink">No quotations received yet.</p>
-          {message && <p className="mt-1 text-sm text-ink-muted">{message}</p>}
+          <p className="mt-2 font-semibold text-ink">
+            {r.status === "closed" ? "No quotations were received." : "No quotations received yet."}
+          </p>
+          <p className="mt-1 text-sm text-ink-muted">{message}</p>
         </>
       )}
     </section>
   );
+}
+
+/** Shortlisted quotations if there are at least two, otherwise the most recent still in play. */
+function pickForComparison(
+  quotes: Quotation[],
+  statusOf: (q: Quotation) => QuotationStatus,
+): { ids: string[]; fromShortlist: boolean } {
+  const shortlisted = quotes.filter((q) => statusOf(q) === "shortlisted");
+  const fromShortlist = shortlisted.length >= 2;
+  const pool = fromShortlist ? shortlisted : quotes.filter((q) => statusOf(q) !== "not-selected");
+  const ids = pool
+    .toSorted((a, b) => b.receivedAt.localeCompare(a.receivedAt))
+    .slice(0, MAX_COMPARE)
+    .map((q) => q.id);
+  return { ids, fromShortlist };
 }
 
 function RequirementNotFound({ id }: { id: string }) {

@@ -10,7 +10,7 @@ import { findImporterPage, IMPORTER_PAGES } from "@/lib/importer-nav";
  * BUILT_SECTIONS so it isn't also generated here.
  */
 
-const BUILT_SECTIONS = new Set(["rfqs"]);
+const BUILT_SECTIONS = new Set(["rfqs", "quotations", "suppliers", "negotiations", "orders"]);
 
 export const dynamicParams = false;
 

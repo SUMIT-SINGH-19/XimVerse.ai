@@ -1,29 +1,18 @@
+import Link from "next/link";
 import { Panel } from "@/components/workspace/panel";
-import { StatusPill, type PillTone } from "@/components/workspace/status-pill";
+import { focusRing } from "@/components/workspace/styles";
+import { QuotationStatusPill } from "@/components/exporter/quotations/quotation-ui";
 import { exporterHref } from "@/lib/exporter-nav";
-import {
-  formatDate,
-  formatQuantity,
-  formatUnitPrice,
-  QUOTATION_STATUS_LABEL,
-  type QuotationStatus,
-  type QuotationSummary,
-} from "@/lib/exporter-dashboard";
-
-const STATUS_TONE: Record<QuotationStatus, PillTone> = {
-  draft: "muted",
-  submitted: "neutral",
-  "under-review": "neutral",
-  shortlisted: "brand",
-  negotiation: "accent",
-  won: "solid",
-  lost: "muted",
-};
+import { formatDate } from "@/lib/exporter-dashboard";
+import { UNIT_SHORT } from "@/lib/exporter-opportunities";
+import { formatMoney } from "@/lib/exporter-quotations";
+import type { PipelineRow } from "@/lib/exporter-quotation-pipeline";
 
 const th = "px-4 py-2.5 text-left text-xs font-semibold uppercase tracking-[0.08em] text-ink-faint first:pl-6 last:pr-6";
 const td = "whitespace-nowrap px-4 py-3 first:pl-6 last:pr-6";
 
-export function RecentQuotationsPanel({ quotations }: { quotations: readonly QuotationSummary[] }) {
+/** Latest quotations, from the same records My Quotations shows. */
+export function RecentQuotationsPanel({ rows }: { rows: readonly PipelineRow[] }) {
   return (
     <Panel
       title="Recent Quotations"
@@ -42,23 +31,34 @@ export function RecentQuotationsPanel({ quotations }: { quotations: readonly Quo
             </tr>
           </thead>
           <tbody className="divide-y divide-line">
-            {quotations.map((q) => (
-              <tr key={q.quotationId} className="transition-colors hover:bg-canvas/50">
-                <td className={`${td} font-mono text-xs text-ink-muted`}>{q.quotationId}</td>
-                <td className={td}>
-                  <p className="font-semibold text-ink">{q.product}</p>
-                  <p className="mt-0.5 text-xs text-ink-muted">{q.destinationCountry}</p>
-                </td>
-                <td className={`${td} text-right tabular-nums`}>
-                  <p className="font-semibold text-ink">{formatUnitPrice(q.price, q.quantity.unit)}</p>
-                  <p className="mt-0.5 text-xs text-ink-muted">{formatQuantity(q.quantity)}</p>
-                </td>
-                <td className={`${td} text-ink-muted`}>{formatDate(q.submittedOn)}</td>
-                <td className={td}>
-                  <StatusPill tone={STATUS_TONE[q.status]}>{QUOTATION_STATUS_LABEL[q.status]}</StatusPill>
-                </td>
-              </tr>
-            ))}
+            {rows.map((r) => {
+              const unit = r.quantity ? UNIT_SHORT[r.quantity.unit] : "";
+              return (
+                <tr key={r.key} className="transition-colors hover:bg-canvas/50">
+                  <td className={td}>
+                    <Link href={exporterHref(`quotations/${r.key}`)} className={`font-mono text-xs text-teal hover:text-ink ${focusRing}`}>
+                      {r.key}
+                    </Link>
+                  </td>
+                  <td className={td}>
+                    <p className="font-semibold text-ink">{r.productName}</p>
+                    <p className="mt-0.5 text-xs text-ink-muted">{r.destinationCountry}</p>
+                  </td>
+                  <td className={`${td} text-right tabular-nums`}>
+                    <p className="font-semibold text-ink">
+                      {r.unitMinor !== undefined && r.currency ? `${formatMoney(r.unitMinor, r.currency)} / ${unit}` : "—"}
+                    </p>
+                    <p className="mt-0.5 text-xs text-ink-muted">{r.quantity ? `${r.quantity.amount.toLocaleString("en-US")} ${unit}` : ""}</p>
+                  </td>
+                  <td className={`${td} text-ink-muted`}>
+                    {r.quotation?.submittedAt ? formatDate(r.quotation.submittedAt.slice(0, 10)) : "—"}
+                  </td>
+                  <td className={td}>
+                    <QuotationStatusPill status={r.status} />
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>

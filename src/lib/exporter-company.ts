@@ -61,6 +61,14 @@ export interface CompanyInformation {
   businessPhone: string;
 }
 
+/**
+ * Stable reference for this exporter company. Placeholder until accounts
+ * exist; it's what a quotation carries as the supplier, and will map to the
+ * importer side's Quotation.supplierId. It identifies the *exporter*, never
+ * the buyer.
+ */
+export const EXPORTER_COMPANY_ID = "EXP-COMP-0001";
+
 export const COMPANY_INFORMATION: CompanyInformation = {
   legalName: "Shree Agro Exports Pvt Ltd",
   tradeName: "Shree Agro Exports",

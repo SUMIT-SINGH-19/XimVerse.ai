@@ -7,6 +7,7 @@ import {
   Factory,
   FileText,
   FolderOpen,
+  Handshake,
   LayoutDashboard,
   Lightbulb,
   MapPinned,
@@ -45,6 +46,7 @@ export const IMPORTER_NAV: readonly ImporterNavGroup[] = [
     items: [
       { slug: "rfqs", label: "RFQs", icon: FileText },
       { slug: "quotations", label: "Quotations", icon: ReceiptText },
+      { slug: "negotiations", label: "Negotiations", icon: Handshake },
       { slug: "orders", label: "Orders", icon: Package },
       { slug: "shipments", label: "Shipments", icon: Ship },
     ],
@@ -128,4 +130,6 @@ export const PLACEHOLDER_IMPORTER = {
   location: "Mumbai, India",
   user: "Demo User",
   initials: "MI",
+  address: "Unit 1204, Trade Centre, Bandra Kurla Complex\nMumbai 400051, Maharashtra, India",
+  contact: { name: "Demo User", email: "procurement@meridian-imports.example", phone: "+91 22 5555 0142" },
 } as const;

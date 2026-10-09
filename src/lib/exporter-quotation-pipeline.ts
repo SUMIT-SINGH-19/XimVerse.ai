@@ -16,6 +16,13 @@ import type { Currency, QuantityUnit } from "./import-requirements";
 import { findOpportunity, shortCountry, tonnes, type BuyerOpportunity } from "./exporter-opportunities";
 import { SEEDED_QUOTATIONS } from "./exporter-quotation-history";
 import {
+  negotiationForQuotation,
+  negotiationStatus,
+  quotationStatusWithNegotiation,
+  SEEDED_NEGOTIATIONS,
+  type ExporterNegotiation,
+} from "./exporter-negotiations";
+import {
   ACTIVE_STATUSES,
   DECIDED_STATUSES,
   effectiveStatus,
@@ -44,16 +51,32 @@ export interface PipelineRow {
   currency?: Currency;
   incoterm?: string;
   validUntil?: string;
-  /** Effective status: live quotations past validity read as expired. */
+  /**
+   * Presentation status: the stored status, expired once validity passes,
+   * and overridden by the quotation's negotiation (derived — the quotation
+   * object itself is never changed).
+   */
   status: ExporterQuotationStatus;
+  /** The negotiation on this quotation, if any. */
+  negotiationId?: string;
   /** ISO timestamp of the latest activity, for "most recent". */
   activityAt: string;
 }
 
 const toMinor = (major: number) => Math.round(major * 100);
 
-export function quotationRow(q: ExporterQuotation, source: "seeded" | "local"): PipelineRow {
+/** A quotation's status once its negotiation (if any) is taken into account. */
+export function presentedStatus(q: ExporterQuotation, negotiation?: ExporterNegotiation): ExporterQuotationStatus {
+  return quotationStatusWithNegotiation(effectiveStatus(q), negotiation && negotiationStatus(negotiation));
+}
+
+export function quotationRow(
+  q: ExporterQuotation,
+  source: "seeded" | "local",
+  negotiations: readonly ExporterNegotiation[] = SEEDED_NEGOTIATIONS,
+): PipelineRow {
   const o = findOpportunity(q.requirementId);
+  const negotiation = negotiationForQuotation(q.id, negotiations);
   return {
     key: q.id,
     kind: "quotation",
@@ -70,8 +93,9 @@ export function quotationRow(q: ExporterQuotation, source: "seeded" | "local"): 
     currency: q.price.currency,
     incoterm: `${q.price.incoterm} ${q.price.namedPlace}`,
     validUntil: q.commercial.validUntil,
-    status: effectiveStatus(q),
-    activityAt: q.updatedAt,
+    status: presentedStatus(q, negotiation),
+    negotiationId: negotiation?.id,
+    activityAt: negotiation && negotiation.events.at(-1)!.at > q.updatedAt ? negotiation.events.at(-1)!.at : q.updatedAt,
   };
 }
 
@@ -108,12 +132,13 @@ export function draftRow(rfqId: string, draft: { values: QuoteFormValues; savedA
 export function buildPipeline(
   local: readonly ExporterQuotation[],
   drafts: Readonly<Record<string, { values: QuoteFormValues; savedAt: string }>>,
+  negotiations: readonly ExporterNegotiation[] = SEEDED_NEGOTIATIONS,
 ): PipelineRow[] {
   const localIds = new Set(local.map((q) => q.id));
   const quotedRfqs = new Set([...local, ...SEEDED_QUOTATIONS].map((q) => q.requirementId));
   const rows = [
-    ...SEEDED_QUOTATIONS.filter((q) => !localIds.has(q.id)).map((q) => quotationRow(q, "seeded")),
-    ...local.map((q) => quotationRow(q, "local")),
+    ...SEEDED_QUOTATIONS.filter((q) => !localIds.has(q.id)).map((q) => quotationRow(q, "seeded", negotiations)),
+    ...local.map((q) => quotationRow(q, "local", negotiations)),
     ...Object.entries(drafts)
       .filter(([rfqId]) => !quotedRfqs.has(rfqId))
       .map(([rfqId, d]) => draftRow(rfqId, d))

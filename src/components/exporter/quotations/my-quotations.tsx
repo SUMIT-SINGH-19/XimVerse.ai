@@ -10,6 +10,7 @@ import { Select } from "@/components/exporter/products/catalogue-filters";
 import { exporterHref } from "@/lib/exporter-nav";
 import { daysBetween, DEMO_TODAY, QUOTATION_STATUS_ORDER, ACTIVE_STATUSES, type ExporterQuotationStatus } from "@/lib/exporter-quotations";
 import { useStoredDrafts, useStoredQuotations } from "@/lib/exporter-quotation-store";
+import { useExporterNegotiations } from "@/lib/exporter-negotiation-store";
 import {
   buildPipeline,
   formatCompactMoney,
@@ -79,7 +80,8 @@ const uniq = (xs: (string | undefined)[]) => [...new Set(xs.filter((x): x is str
 export function MyQuotations() {
   const local = useStoredQuotations();
   const drafts = useStoredDrafts();
-  const rows = useMemo(() => buildPipeline(local, drafts), [local, drafts]);
+  const negotiations = useExporterNegotiations();
+  const rows = useMemo(() => buildPipeline(local, drafts, negotiations), [local, drafts, negotiations]);
   const summary = useMemo(() => pipelineSummary(rows), [rows]);
   const [filters, setFilters] = useState(DEFAULT_FILTERS);
   const visible = useMemo(() => applyFilters(rows, filters), [rows, filters]);

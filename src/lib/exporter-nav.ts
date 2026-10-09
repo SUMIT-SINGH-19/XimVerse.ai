@@ -10,6 +10,7 @@ import {
   PackageCheck,
   Radar,
   ReceiptText,
+  Scale,
   Settings,
   Ship,
   Users,
@@ -35,6 +36,7 @@ export const EXPORTER_WORKSPACE: WorkspaceConfig = {
       items: [
         { slug: "opportunities", label: "Buyer Opportunities", icon: Radar },
         { slug: "quotations", label: "My Quotations", icon: ReceiptText },
+        { slug: "negotiations", label: "Negotiations", icon: Scale },
         { slug: "deals", label: "Deals", icon: Handshake },
       ],
     },

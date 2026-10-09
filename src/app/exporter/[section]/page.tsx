@@ -9,7 +9,7 @@ import { EXPORTER_PAGES, findExporterPage } from "@/lib/exporter-nav";
  * and list its slug in BUILT_SECTIONS so this route stops generating it.
  */
 
-const BUILT_SECTIONS = new Set(["company", "products", "opportunities", "quotations"]);
+const BUILT_SECTIONS = new Set(["company", "products", "opportunities", "quotations", "negotiations"]);
 
 // Only the sections in the nav exist; anything else is a 404.
 export const dynamicParams = false;

@@ -89,13 +89,13 @@ export function ImporterTopbar({
             <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-teal text-sm font-semibold text-on-brand">
               {PLACEHOLDER_IMPORTER.initials}
             </span>
-            <span className="hidden min-w-0 text-left xl:block">
+            <span className="hidden min-w-0 text-left 2xl:block">
               <span className="block max-w-44 truncate text-sm font-semibold text-ink">
                 {PLACEHOLDER_IMPORTER.company}
               </span>
               <span className="block text-xs text-ink-muted">{PLACEHOLDER_IMPORTER.location}</span>
             </span>
-            <span className="sr-only xl:hidden">{PLACEHOLDER_IMPORTER.company}</span>
+            <span className="sr-only 2xl:hidden">{PLACEHOLDER_IMPORTER.company}</span>
           </Link>
         </div>
       </div>

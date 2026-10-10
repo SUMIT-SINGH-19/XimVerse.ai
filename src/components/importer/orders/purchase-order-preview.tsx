@@ -34,8 +34,7 @@ export function PurchaseOrderPreview({ id }: { id: string }) {
       <p className="text-sm text-ink-muted print:hidden">
         Preview only. This purchase order has not been sent to the supplier from XimVerse.
       </p>
-      <p className="text-xs text-ink-faint sm:hidden print:hidden">Scroll sideways to see the full document.</p>
-      {/* The document keeps its own width; on small screens it scrolls inside this area. */}
+      {/* The document reflows on phones and keeps its paper width from sm, and in print. */}
       <div className="relative overflow-x-auto rounded-2xl border border-line bg-canvas p-3 sm:p-6 print:overflow-visible print:border-0 print:bg-white print:p-0">
         <PurchaseOrderDocument order={order} />
       </div>
@@ -53,17 +52,17 @@ function PurchaseOrderDocument({ order }: { order: Order }) {
   return (
     <article
       aria-label={`Purchase order ${po.number}`}
-      className="mx-auto min-w-[40rem] max-w-[52rem] bg-white px-10 py-10 text-[13px] leading-relaxed text-[#1c2b2c] shadow-[0_1px_3px_rgba(11,46,48,0.12)] print:min-w-0 print:max-w-none print:px-0 print:py-0 print:shadow-none"
+      className="mx-auto max-w-[52rem] bg-white px-5 py-6 text-[13px] sm:min-w-[40rem] sm:px-10 sm:py-10 leading-relaxed text-[#1c2b2c] shadow-[0_1px_3px_rgba(11,46,48,0.12)] print:min-w-0 print:max-w-none print:px-0 print:py-0 print:shadow-none"
     >
-      <header className="flex items-start justify-between gap-8 border-b-2 border-[#0b4547] pb-6">
+      <header className="flex flex-col-reverse gap-4 border-b-2 border-[#0b4547] pb-6 sm:flex-row sm:items-start sm:justify-between sm:gap-8 print:flex-row print:items-start print:justify-between print:gap-8">
         <div>
           <p className="text-lg font-bold text-[#0b4547]">{PLACEHOLDER_IMPORTER.company}</p>
           <p className="whitespace-pre-line text-[#4d5f60]">{PLACEHOLDER_IMPORTER.address}</p>
         </div>
-        <div className="text-right">
-          <p className="text-2xl font-bold tracking-[0.08em] text-[#0b4547]">PURCHASE ORDER</p>
+        <div className="sm:text-right print:text-right">
+          <p className="text-xl font-bold sm:text-2xl print:text-2xl tracking-[0.08em] text-[#0b4547]">PURCHASE ORDER</p>
           {cancelled && <p className="mt-1 font-bold tracking-[0.1em] text-[#b0442a]">CANCELLED</p>}
-          <dl className="mt-3 grid grid-cols-[auto_auto] justify-end gap-x-4 gap-y-0.5 text-left">
+          <dl className="mt-3 grid grid-cols-[auto_auto] justify-start gap-x-4 sm:justify-end print:justify-end gap-y-0.5 text-left">
             <dt className="text-[#6b7a7b]">PO number</dt>
             <dd className="font-semibold">{po.number}</dd>
             <dt className="text-[#6b7a7b]">Order date</dt>
@@ -80,7 +79,7 @@ function PurchaseOrderDocument({ order }: { order: Order }) {
         </div>
       </header>
 
-      <section className="grid grid-cols-2 gap-8 border-b border-[#e2e0da] py-6">
+      <section className="grid grid-cols-1 gap-6 border-b border-[#e2e0da] py-6 sm:grid-cols-2 sm:gap-8 print:grid-cols-2 print:gap-8">
         <div>
           <h2 className="text-[11px] font-bold uppercase tracking-[0.14em] text-[#0b4547]">Buyer</h2>
           <p className="mt-2 font-semibold">{PLACEHOLDER_IMPORTER.company}</p>
@@ -102,8 +101,9 @@ function PurchaseOrderDocument({ order }: { order: Order }) {
           <thead>
             <tr className="border-y border-[#0b4547]/40 text-[11px] uppercase tracking-[0.08em] text-[#4d5f60]">
               <th scope="col" className="py-2 pr-4 font-semibold">Product</th>
-              <th scope="col" className="px-3 py-2 text-right font-semibold">Quantity</th>
-              <th scope="col" className="px-3 py-2 text-right font-semibold">Unit price</th>
+              {/* On phones quantity and unit price move under the product. */}
+              <th scope="col" className="hidden px-3 py-2 text-right font-semibold sm:table-cell print:table-cell">Quantity</th>
+              <th scope="col" className="hidden px-3 py-2 text-right font-semibold sm:table-cell print:table-cell">Unit price</th>
               <th scope="col" className="py-2 pl-3 text-right font-semibold">Total ({t.currency})</th>
             </tr>
           </thead>
@@ -114,22 +114,27 @@ function PurchaseOrderDocument({ order }: { order: Order }) {
                 <p className="text-[#4d5f60]">{t.specification}</p>
                 {t.hsCode && <p className="mt-1 text-[#6b7a7b]">HS code {t.hsCode}</p>}
                 {t.packaging && <p className="text-[#6b7a7b]">Packaging: {t.packaging}</p>}
+                <p className="mt-1 sm:hidden print:hidden">
+                  {formatOrderQuantity(t)} × {formatOrderUnitPrice(t)}
+                </p>
               </td>
-              <td className="whitespace-nowrap px-3 py-3 text-right">{formatOrderQuantity(t)}</td>
-              <td className="whitespace-nowrap px-3 py-3 text-right">{formatOrderUnitPrice(t)}</td>
+              <td className="hidden whitespace-nowrap px-3 py-3 text-right sm:table-cell print:table-cell">{formatOrderQuantity(t)}</td>
+              <td className="hidden whitespace-nowrap px-3 py-3 text-right sm:table-cell print:table-cell">{formatOrderUnitPrice(t)}</td>
               <td className="whitespace-nowrap py-3 pl-3 text-right font-semibold">{formatOrderValue(t)}</td>
             </tr>
           </tbody>
           <tfoot>
             <tr>
-              <th scope="row" colSpan={3} className="py-3 pr-3 text-right font-semibold text-[#4d5f60]">Total order value ({t.currency})</th>
+              {/* One label per layout, so the row spans the same columns as the body. */}
+              <th scope="row" className="py-3 pr-3 text-right font-semibold text-[#4d5f60] sm:hidden print:hidden">Total ({t.currency})</th>
+              <th scope="row" colSpan={3} className="hidden py-3 pr-3 text-right font-semibold text-[#4d5f60] sm:table-cell print:table-cell">Total order value ({t.currency})</th>
               <td className="py-3 pl-3 text-right text-base font-bold text-[#0b4547]">{formatOrderValue(t)}</td>
             </tr>
           </tfoot>
         </table>
       </section>
 
-      <section className="grid grid-cols-2 gap-8 border-t border-[#e2e0da] py-6">
+      <section className="grid grid-cols-1 gap-6 border-t border-[#e2e0da] py-6 sm:grid-cols-2 sm:gap-8 print:grid-cols-2 print:gap-8">
         <div>
           <h2 className="text-[11px] font-bold uppercase tracking-[0.14em] text-[#0b4547]">Commercial terms</h2>
           <dl className="mt-2 grid grid-cols-[8rem_1fr] gap-y-1">

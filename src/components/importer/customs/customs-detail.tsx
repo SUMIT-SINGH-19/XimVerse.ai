@@ -205,7 +205,7 @@ function DocumentsSection({ view }: { view: CustomsCaseView }) {
       description="Live from the Document Center. Document metadata only — no files are stored."
       action={<Link href={`${importerHref("documents")}?shipment=${view.shipment.id}`} className={`${textLink} shrink-0`}>Manage Documents</Link>}
     >
-      <div className="relative mt-3 hidden overflow-x-auto lg:block">
+      <div className="relative mt-3 hidden overflow-x-auto xl:block">
         <table className="w-full min-w-[52rem] text-left text-sm">
           <thead>
             <tr className="border-y border-line bg-canvas/60 text-xs text-ink-muted">
@@ -230,7 +230,7 @@ function DocumentsSection({ view }: { view: CustomsCaseView }) {
           </tbody>
         </table>
       </div>
-      <ul className="mt-3 divide-y divide-line border-t border-line lg:hidden">
+      <ul className="mt-3 divide-y divide-line border-t border-line xl:hidden">
         {view.documents.map((d) => (
           <li key={d.id} className="px-5 py-3 text-sm sm:px-6">
             <div className="flex flex-wrap items-center justify-between gap-2">

@@ -30,7 +30,7 @@ export function WorkspaceTopbar({
       <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-teal text-sm font-semibold text-on-brand">
         {identity.initials}
       </span>
-      <span className="hidden min-w-0 text-left xl:block">
+      <span className="hidden min-w-0 text-left 2xl:block">
         <span className="flex max-w-52 items-center gap-1 text-sm font-semibold text-ink">
           <span className="truncate">{identity.company}</span>
           {identity.badge && (
@@ -39,7 +39,7 @@ export function WorkspaceTopbar({
         </span>
         <span className="block text-xs text-ink-muted">{identity.location}</span>
       </span>
-      <span className="sr-only xl:hidden">{identity.company}</span>
+      <span className="sr-only 2xl:hidden">{identity.company}</span>
     </>
   );
   const identityClass = `flex items-center gap-3 rounded-lg p-1 sm:pr-2 ${focusRing}`;

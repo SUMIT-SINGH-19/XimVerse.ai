@@ -106,7 +106,7 @@ export function ComplianceDetail({ shipmentId }: { shipmentId: string }) {
       <Disclaimer />
 
       <Panel id="matrix" title="Required Document Matrix" description="Documents for this shipment, why each is needed, and what to do next.">
-        <div className="relative mt-3 hidden overflow-x-auto lg:block">
+        <div className="relative mt-3 hidden overflow-x-auto xl:block">
           <table className="w-full min-w-[56rem] text-left text-sm">
             <thead>
               <tr className="border-y border-line bg-canvas/60 text-xs text-ink-muted">
@@ -132,7 +132,7 @@ export function ComplianceDetail({ shipmentId }: { shipmentId: string }) {
             </tbody>
           </table>
         </div>
-        <ul className="mt-3 divide-y divide-line border-t border-line lg:hidden">
+        <ul className="mt-3 divide-y divide-line border-t border-line xl:hidden">
           {a.documents.map((d) => (
             <li key={d.id} className="px-5 py-3 text-sm sm:px-6">
               <div className="flex flex-wrap items-center justify-between gap-2">

@@ -20,6 +20,7 @@ import {
   validateManualFields,
   type ChaAssignment,
   type CustomsCaseView,
+  type CustomsLineItem,
   type DeclarationField,
   type ManualDeclarationFields,
   type ManualFieldId,
@@ -40,6 +41,14 @@ const smallButton = `inline-flex h-9 items-center gap-1.5 rounded-lg border bord
 type Say = (message: string) => void;
 
 /** Moves focus once the next render is on screen (open → first field, close → opener). */
+/** A line item's facts after its description, shared by the table and the phone list. */
+const lineFacts = (l: CustomsLineItem): [label: string, value: React.ReactNode][] => [
+  ["HS Code", l.hsCode ?? <span className="text-orange">HS Code required.</span>],
+  ["Quantity", l.quantity !== undefined ? `${l.quantity.toLocaleString("en-US")} ${l.unit}` : "Not provided"],
+  ["Invoice value", l.invoiceValue !== undefined && l.currency ? formatPrice(l.invoiceValue, l.currency) : "Not provided"],
+  ["Origin", l.countryOfOrigin ?? "Not provided"],
+];
+
 const focusSoon = (id: string) => requestAnimationFrame(() => document.getElementById(id)?.focus());
 
 function TextInput({
@@ -176,8 +185,8 @@ export function DeclarationSection({ view, onMessage }: { view: CustomsCaseView;
         )}
 
         <h3 className="mt-6 text-sm font-semibold text-ink">Line items</h3>
-        <div className="mt-2 overflow-x-auto rounded-xl border border-line">
-          <table className="w-full min-w-[36rem] text-left text-sm">
+        <div className="mt-2 hidden overflow-x-auto rounded-xl border border-line sm:block">
+          <table className="w-full text-left text-sm">
             <thead>
               <tr className="border-b border-line bg-canvas/60 text-xs text-ink-muted">
                 {["Line", "Description", "HS Code", "Quantity", "Invoice value", "Origin"].map((h) => (
@@ -190,15 +199,32 @@ export function DeclarationSection({ view, onMessage }: { view: CustomsCaseView;
                 <tr key={l.line} className="align-top">
                   <td className="px-3 py-2 text-ink-muted">{l.line}</td>
                   <td className="px-3 py-2 text-ink">{l.description ?? "Not provided"}</td>
-                  <td className="whitespace-nowrap px-3 py-2 text-ink">{l.hsCode ?? <span className="text-orange">HS Code required.</span>}</td>
-                  <td className="whitespace-nowrap px-3 py-2 text-ink">{l.quantity !== undefined ? `${l.quantity.toLocaleString("en-US")} ${l.unit}` : "Not provided"}</td>
-                  <td className="whitespace-nowrap px-3 py-2 text-ink">{l.invoiceValue !== undefined && l.currency ? formatPrice(l.invoiceValue, l.currency) : "Not provided"}</td>
-                  <td className="px-3 py-2 text-ink">{l.countryOfOrigin ?? "Not provided"}</td>
+                  {lineFacts(l).map(([label, value]) => (
+                    <td key={label} className={`px-3 py-2 text-ink ${label === "Origin" ? "" : "whitespace-nowrap"}`}>{value}</td>
+                  ))}
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
+        <ul className="mt-2 divide-y divide-line rounded-xl border border-line sm:hidden">
+          {view.lineItems.map((l) => (
+            <li key={l.line} className="px-4 py-3 text-sm">
+              <p className="text-ink">
+                <span className="text-ink-muted">Line {l.line} · </span>
+                {l.description ?? "Not provided"}
+              </p>
+              <dl className="mt-2 grid grid-cols-2 gap-x-4 gap-y-2">
+                {lineFacts(l).map(([label, value]) => (
+                  <div key={label} className="min-w-0">
+                    <dt className="text-xs text-ink-faint">{label}</dt>
+                    <dd className="text-ink">{value}</dd>
+                  </div>
+                ))}
+              </dl>
+            </li>
+          ))}
+        </ul>
         <p className="mt-3 flex gap-2 text-sm text-ink-muted">
           <Info aria-hidden className="mt-0.5 size-4 shrink-0" />
           {NO_DUTIES}

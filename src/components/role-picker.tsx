@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { ArrowRight, Check } from "lucide-react";
+import { useT } from "@/i18n/client";
 import { ROLES, type RoleSlug } from "@/lib/roles";
 
 const focusRing =
@@ -12,17 +13,18 @@ const continueClass = `inline-flex h-14 items-center gap-2 rounded-xl bg-orange 
   hover:brightness-95 disabled:cursor-not-allowed disabled:opacity-40 ${focusRing}`;
 
 export function RolePicker() {
+  const t = useT();
   const [selected, setSelected] = useState<RoleSlug | null>(null);
   const selectedRole = ROLES.find((r) => r.slug === selected);
   const continueLabel = selectedRole
-    ? `Continue as ${selectedRole.title.split(" –")[0]}`
-    : "Continue";
+    ? t("Continue as {role}", { role: t(selectedRole.title.split(" –")[0]) })
+    : t("Continue");
 
   return (
     <div className="w-full">
       <div
         role="radiogroup"
-        aria-label="Choose your role"
+        aria-label={t("Choose your role")}
         className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4"
       >
         {ROLES.map(({ slug, title, description, icon: Icon }) => {
@@ -49,13 +51,13 @@ export function RolePicker() {
                 <Icon className="size-6" aria-hidden />
               </span>
 
-              <span className="mt-5 block text-xl sm:mt-8 font-semibold tracking-tight">{title}</span>
+              <span className="mt-5 block text-xl sm:mt-8 font-semibold tracking-tight">{t(title)}</span>
               <span
                 className={`mt-2 block text-sm leading-relaxed ${
                   isSelected ? "text-on-brand/75" : "text-ink-muted"
                 }`}
               >
-                {description}
+                {t(description)}
               </span>
 
               <span
@@ -84,7 +86,7 @@ export function RolePicker() {
           </button>
         )}
         {!selectedRole && (
-          <p className="text-sm text-ink-muted">Select a role to continue.</p>
+          <p className="text-sm text-ink-muted">{t("Select a role to continue.")}</p>
         )}
       </div>
     </div>

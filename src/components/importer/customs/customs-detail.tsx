@@ -74,9 +74,10 @@ function resultOf(v: CustomsCaseView): { title: string; detail?: string; tone: "
       return { title: `Ready for handoff to ${v.cha?.company}`, detail: "Every required item is in place. Record the handoff once the package is with the broker.", tone: "ok" };
     case "with-cha": {
       const awaiting = v.clarifications.filter((c) => c.status === "responded").length;
-      return n
-        ? { title: `With ${v.handoff?.cha.company} — ${items}`, detail: "Resolve these before the case is Ready for Filing:", tone: "attention" }
-        : { title: `With ${v.handoff?.cha.company}`, detail: `Awaiting the broker on ${awaiting} answered ${awaiting === 1 ? "clarification" : "clarifications"}. Mark each resolved when the broker confirms.`, tone: "attention" };
+      if (n) return { title: `With ${v.handoff?.cha.company} — ${items}`, detail: "Resolve these before the case is Ready for Filing:", tone: "attention" };
+      if (v.changedSinceHandoff.length)
+        return { title: `With ${v.handoff?.cha.company}`, detail: "The package changed since the last handoff. Record an updated handoff so the broker has the current version.", tone: "attention" };
+      return { title: `With ${v.handoff?.cha.company}`, detail: `Awaiting the broker on ${awaiting} answered ${awaiting === 1 ? "clarification" : "clarifications"}. Mark each resolved when the broker confirms.`, tone: "attention" };
     }
     case "clarification-required": {
       const open = v.clarifications.filter((c) => c.status === "open").length;
@@ -257,6 +258,7 @@ function FilingSection({ view, onMessage }: { view: CustomsCaseView; onMessage: 
     ["Required declaration fields complete", view.missingFields.length === 0],
     ["Customs broker assigned", !!view.cha],
     ["Handoff recorded", !!view.handoff],
+    ["No changes since handoff", !!view.handoff && view.changedSinceHandoff.length === 0],
     ["No unresolved clarification", view.clarifications.every((c) => c.status === "resolved")],
   ];
   const demo = nextDemoStep(view);

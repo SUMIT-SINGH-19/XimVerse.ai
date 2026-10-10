@@ -52,7 +52,8 @@ import {
 import { approveForWorkflow, issueDocument, markDocumentAvailable, requestDocument, useDocuments } from "../documents/document-store";
 import { customsCaseForShipment, type CustomsCaseView } from "@/lib/importer-customs";
 import { useCustomsCases } from "../customs/customs-store";
-import { CaseSummaryRows } from "../customs/customs-ui";
+import { CUSTOMS_CASE_STATUS_LABEL } from "@/lib/importer-customs";
+import { CustomsReadinessBadge } from "../customs/customs-ui";
 
 const backLink = `inline-flex items-center gap-1.5 rounded-md text-sm font-medium text-ink-muted hover:text-teal ${focusRing}`;
 const textLink = `inline-flex items-center gap-1 rounded text-sm font-semibold text-teal hover:underline ${focusRing}`;
@@ -700,7 +701,7 @@ function Customs({
           <div className="flex items-center justify-between gap-4 py-2">
             <dt className="text-ink-muted">Customs status</dt>
             <dd className="flex items-center gap-2 font-medium text-ink">
-              {CUSTOMS_STATUS_LABEL[customs]}
+              {customsCase ? CUSTOMS_CASE_STATUS_LABEL[customsCase.status] : CUSTOMS_STATUS_LABEL[customs]}
               {fromDemo && demoTag}
               {historical && <span className="text-xs font-normal text-ink-faint">Historical record</span>}
             </dd>
@@ -713,8 +714,17 @@ function Customs({
           </p>
         )}
         {customsCase ? (
-          <div className="mt-4 border-t border-line pt-3">
-            <CaseSummaryRows view={customsCase} />
+          <div className="mt-3 border-t border-line pt-1">
+            <dl className="divide-y divide-line">
+              <div className="flex justify-between gap-4 py-2">
+                <dt className="text-ink-muted">Customs case</dt>
+                <dd className="font-mono text-ink">{customsCase.id}</dd>
+              </div>
+              <div className="flex items-center justify-between gap-4 py-2">
+                <dt className="text-ink-muted">Customs readiness</dt>
+                <dd><CustomsReadinessBadge readiness={customsCase.readiness} /></dd>
+              </div>
+            </dl>
             <Link href={importerHref(`customs/${customsCase.id}`)} className={`${secondaryButton} mt-3 h-10 w-full`}>
               View Customs Case
             </Link>

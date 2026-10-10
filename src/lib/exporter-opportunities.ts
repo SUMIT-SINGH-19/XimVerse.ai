@@ -952,6 +952,50 @@ export const BUYER_OPPORTUNITIES: readonly BuyerOpportunity[] = [
       reasons: [strength("product", "Product category match"), gap("certification", "Organic certification pending verification")],
     },
   },
+  {
+    // Historical: accepted directly; a 500 MT order executed in several shipments (see QT-2026-8118).
+    rfqId: "DEMO-RFQ-0971",
+    opportunityId: "OPP-2026-0229",
+    rfqStatus: "supplier-selected",
+    status: "closed",
+    rfqPublishedAt: "2026-09-02T05:00:00Z",
+    matchedAt: "2026-09-02T08:00:00Z",
+    sharedAt: "2026-09-02T09:30:00Z",
+    quotesDueAt: "2026-09-09T12:00:00Z",
+    product: {
+      name: "PR11 Non-Basmati Rice",
+      category: FOOD,
+      specification: "PR11 sella, broken 5% max, moisture 14% max.",
+      specificationItems: [
+        { label: "Variety", value: "PR11" },
+        { label: "Processing", value: "Sella" },
+        { label: "Broken Grain", value: "Max 5%" },
+        { label: "Moisture", value: "Max 14%" },
+      ],
+      hsCode: RICE_HS,
+    },
+    quantity: { amount: 500, unit: "MT", minimumAcceptable: 250 },
+    delivery: {
+      destinationCountry: "Kuwait",
+      destinationLocation: "Shuwaikh Port, Kuwait",
+      requiredBy: "2026-11-15",
+      incoterm: { term: "CIF", namedPlace: "Shuwaikh Port, Kuwait" },
+    },
+    commercial: { paymentTerms: "lc", paymentNotes: "LC at sight." },
+    quality: { packaging: "50 kg PP bags." },
+    compliance: {
+      standingCredentials: [FSSAI],
+      shipmentDocuments: [doc("Certificate of Origin"), doc("Phytosanitary Certificate"), doc("Fumigation Certificate", "needs-action")],
+    },
+    extendedTerms: { partialShipment: true, shipmentPreference: "Two or more 20 ft FCL lots acceptable", currency: "USD", quoteValidityDays: 7 },
+    supplierRequirements: ANY_SUPPLIER,
+    buyer: { country: "Kuwait", region: "Middle East", industry: "Wholesale" },
+    match: {
+      score: 87,
+      matchedProductId: "rice-pr11",
+      reasons: [strength("product", "Exact product match"), gap("destination", "No prior Kuwait experience")],
+    },
+  },
 ];
 
 export const SUMIT_OPPORTUNITIES_INSIGHT =

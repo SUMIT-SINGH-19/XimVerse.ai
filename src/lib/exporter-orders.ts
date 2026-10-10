@@ -14,8 +14,10 @@
  * change. Execution — production, payment readiness, documents — is state
  * derived by replaying events over the order's base.
  *
- * Shipments: an order lists shipment allocations (empty for now), so one
- * order can be split across several shipments later.
+ * Shipments: one order -> many shipments. Allocations live on the shipment
+ * records (exporter-shipments.ts) and are passed in when deriving order
+ * state, so there is a single source for how much is allocated. Shipping
+ * instructions, shipping bill and BL/AWB belong to each shipment, not here.
  *
  * Privacy: no PurchaseOrder object (it holds buyer addresses and contacts on
  * the importer side) — only a buyer-safe PO view.
@@ -80,11 +82,14 @@ export const TO_IMPORTER_DOCUMENT_TYPE: Partial<Record<OrderDocumentType, Import
 };
 
 /**
- * pre-shipment: must be ready before shipment.
- * shipment-stage: produced at shipment (shipping bill, BL/AWB) — not counted
- * in pre-shipment readiness, and never shown as filed here.
+ * pre-shipment: an order-level document, ready before shipment.
+ * shipment-stage: legacy — shipping instructions, shipping bill and BL/AWB
+ * now live on each shipment. Kept so older stored orders still parse.
  */
 export type DocumentPhase = "pre-shipment" | "shipment-stage";
+
+/** Document types owned by the shipment, not the order. */
+export const SHIPMENT_LEVEL_TYPES: readonly OrderDocumentType[] = ["shipping-instructions", "shipping-bill", "transport-document"];
 
 export interface OrderDocument {
   id: string;
@@ -133,9 +138,7 @@ export function documentsFromTerms(orderId: string, t: DealTerms): OrderDocument
     if (type && c.commitment !== "not-committed") add(type, "pre-shipment", c.commitment);
   }
   if (t.costCoverage.insurance === "included") add("insurance-certificate", "pre-shipment");
-  add("shipping-instructions", "pre-shipment");
-  add("shipping-bill", "shipment-stage");
-  add("transport-document", "shipment-stage");
+  // Shipping instructions, shipping bill and BL/AWB are per shipment (exporter-shipments.ts).
   return docs;
 }
 
@@ -204,7 +207,6 @@ export type OrderEventType =
   | "production-completed"
   | "payment-updated"
   | "document-updated"
-  | "shipment-created"
   | "on-hold"
   | "resumed"
   | "completed"
@@ -228,7 +230,6 @@ export interface OrderEvent {
   /** payment-updated: a step id from PAYMENT_STEPS. */
   paymentStep?: string;
   document?: { id: string; status: OrderDocumentStatus };
-  shipment?: { id: string; quantity: number };
 }
 
 /** A buyer-safe view of the purchase order: no addresses, no contacts. */
@@ -239,9 +240,13 @@ export interface PurchaseOrderView {
   status: "not-received" | "received" | "acknowledged";
 }
 
+/** One shipment's share of an order, as reported by the shipment layer. */
 export interface ShipmentAllocation {
   shipmentId: string;
   quantity: number;
+  /** Cargo has left origin. */
+  shipped: boolean;
+  delivered: boolean;
 }
 
 export interface ExporterOrder {
@@ -258,10 +263,8 @@ export interface ExporterOrder {
   /** Deep copy of deal.terms. Never changes. */
   terms: DealTerms;
   purchaseOrder: PurchaseOrderView;
-  /** The checklist as at creation; status changes are events. */
+  /** The order-level checklist as at creation; status changes are events. */
   documents: OrderDocument[];
-  /** Planned shipments; several allowed (partial shipments). */
-  shipments: ShipmentAllocation[];
   events: readonly OrderEvent[];
 }
 
@@ -329,19 +332,34 @@ export interface OrderState {
   paymentStep: PaymentStep;
   paymentReady: boolean;
   documents: OrderDocument[];
-  shipments: ShipmentAllocation[];
+  shipments: readonly ShipmentAllocation[];
+  /** Quantity ledger. Ordered never changes; the rest are derived. */
+  quantities: {
+    ordered: number;
+    produced: number;
+    allocated: number;
+    /** Produced and not yet allocated to a shipment. */
+    available: number;
+    shipped: number;
+    delivered: number;
+  };
   updatedAt: string;
 }
 
-export function orderState(o: ExporterOrder): OrderState {
+/**
+ * Replays the order's events. `allocations` come from the order's shipments
+ * (non-cancelled), so allocated / shipped / delivered quantities stay derived.
+ */
+export function orderState(o: ExporterOrder, allocations: readonly ShipmentAllocation[] = []): OrderState {
   const steps = PAYMENT_STEPS[o.terms.paymentTerm];
   let confirmed = false;
   let held = false;
   let cancelled = false;
   let completed = false;
   let paymentStep = steps[0];
-  const docs = new Map(o.documents.map((d) => [d.id, { ...d }]));
-  const shipments = [...o.shipments];
+  // Shipment-level types are ignored here (older stored orders may still carry them).
+  const docs = new Map(o.documents.filter((d) => !SHIPMENT_LEVEL_TYPES.includes(d.type)).map((d) => [d.id, { ...d }]));
+  const shipments = [...allocations];
   const p: OrderState["production"] = { status: "not-started", ordered: o.terms.quantity.amount, produced: 0, progress: 0, notes: [] };
   let updatedAt = o.createdAt;
 
@@ -375,9 +393,6 @@ export function orderState(o: ExporterOrder): OrderState {
         if (d && e.document) docs.set(d.id, { ...d, status: e.document.status });
         break;
       }
-      case "shipment-created":
-        if (e.shipment) shipments.push({ shipmentId: e.shipment.id, quantity: e.shipment.quantity });
-        break;
       case "on-hold":
         held = true;
         break;
@@ -398,7 +413,16 @@ export function orderState(o: ExporterOrder): OrderState {
   p.progress = p.ordered ? Math.round((p.produced / p.ordered) * 100) : 0;
 
   const documents = [...docs.values()];
-  const base = { confirmed, production: p, paymentStep, paymentReady: paymentStep.id === "confirmed", documents, shipments, updatedAt };
+  const allocated = shipments.reduce((t, a) => t + a.quantity, 0);
+  const quantities = {
+    ordered: p.ordered,
+    produced: p.produced,
+    allocated,
+    available: Math.max(0, Math.min(p.produced, p.ordered) - allocated),
+    shipped: shipments.filter((a) => a.shipped).reduce((t, a) => t + a.quantity, 0),
+    delivered: shipments.filter((a) => a.delivered).reduce((t, a) => t + a.quantity, 0),
+  };
+  const base = { confirmed, production: p, paymentStep, paymentReady: paymentStep.id === "confirmed", documents, shipments, quantities, updatedAt };
   const readiness = preShipmentScore({ ...o, terms: o.terms }, { ...base, status: "confirmed", stage: "Order Confirmed" });
 
   let status: OrderStatus;
@@ -406,7 +430,8 @@ export function orderState(o: ExporterOrder): OrderState {
   else if (completed) status = "completed";
   else if (held) status = "on-hold";
   else if (!confirmed) status = "awaiting-confirmation";
-  else if (shipments.length) status = "in-shipment";
+  // In shipment once cargo is allocated and production is done (or everything is allocated).
+  else if (allocated > 0 && (p.status === "completed" || allocated >= p.ordered)) status = "in-shipment";
   else if (p.status === "completed") status = readiness === 100 ? "ready-to-ship" : "pre-shipment";
   else if (p.status === "in-progress") status = "production";
   else status = "confirmed";
@@ -455,7 +480,6 @@ export function preShipmentReadiness(o: ExporterOrder, s: Omit<OrderState, "stat
   const inspection = docs.find((d) => d.type === "inspection-certificate");
   const paperwork = docs.filter((d) => d.commitment !== "arrangement-required" && d.type !== "inspection-certificate" && d.type !== "shipping-instructions");
   const prepared = (d: OrderDocument) => d.status === "ready" || d.status === "verified";
-  const instructions = docs.find((d) => d.type === "shipping-instructions");
 
   const items: ReadinessItem[] = [
     { key: "terms", label: "Commercial terms locked", done: true },
@@ -488,7 +512,6 @@ export function preShipmentReadiness(o: ExporterOrder, s: Omit<OrderState, "stat
     done: notPrepared.length === 0,
     detail: notPrepared.length ? `${notPrepared.length} of ${paperwork.length} not ready` : undefined,
   });
-  if (instructions) items.push({ key: "instructions", label: "Shipping instructions ready", done: prepared(instructions) });
   return items;
 }
 
@@ -549,7 +572,10 @@ export function orderInsights(o: ExporterOrder, s: OrderState): string[] {
         : `Cargo ready date is ${-gap} day${gap === -1 ? "" : "s"} after the agreed delivery date — review with Ximverse.`,
     );
   }
-  if (s.status === "ready-to-ship") out.push("Every pre-shipment item is complete. The order can move to shipment once shipments are available.");
+  if (s.status === "ready-to-ship") out.push("Every pre-shipment item is complete. Create a shipment to allocate the cargo.");
+  if (s.quantities.allocated > 0 && s.quantities.available > 0) {
+    out.push(`${s.quantities.available.toLocaleString("en-US")} ${o.terms.quantity.unit} produced and not yet allocated to a shipment.`);
+  }
   return out;
 }
 
@@ -583,7 +609,6 @@ export function orderFromDeal(deal: ExporterDeal, id: string, createdAt: string,
     terms,
     purchaseOrder,
     documents: documentsFromTerms(id, terms),
-    shipments: [],
     events: [{ id: `${id}-e0`, type: "created", by: "supplier", at: createdAt }],
   };
 }
@@ -621,7 +646,7 @@ export const SEEDED_ORDERS: readonly ExporterOrder[] = [
     { type: "production-updated", by: "supplier", at: at("2026-10-06"), producedQuantity: 65, note: "Sortexing on schedule." },
     { type: "document-updated", by: "supplier", at: at("2026-10-06", "10:00"), document: { id: doc("commercial-invoice"), status: "preparing" } },
   ]),
-  // Production complete, pre-shipment — fumigation still not arranged.
+  // Production complete and every pre-shipment item done; executed in three shipments.
   seededOrder("ORD-2026-8102", "DL-2026-8102", at("2026-08-27"), { number: "PO-2026-8102", issueDate: "2026-08-27", status: "acknowledged" }, (doc) => [
     { type: "supplier-confirmed", by: "supplier", at: at("2026-08-27", "10:00") },
     { type: "payment-updated", by: "supplier", at: at("2026-08-29"), paymentStep: "lc-received" },
@@ -634,11 +659,27 @@ export const SEEDED_ORDERS: readonly ExporterOrder[] = [
     { type: "document-updated", by: "supplier", at: at("2026-09-24", "07:00"), document: { id: doc("packing-list"), status: "ready" } },
     { type: "document-updated", by: "supplier", at: at("2026-09-25"), document: { id: doc("certificate-of-origin"), status: "verified" } },
     { type: "document-updated", by: "supplier", at: at("2026-09-26"), document: { id: doc("phytosanitary-certificate"), status: "ready" } },
+    { type: "document-updated", by: "supplier", at: at("2026-09-25", "09:00"), document: { id: doc("fumigation-certificate"), status: "ready" } },
     { type: "document-updated", by: "supplier", at: at("2026-09-26", "08:00"), document: { id: doc("insurance-certificate"), status: "ready" } },
-    { type: "document-updated", by: "supplier", at: at("2026-09-27"), document: { id: doc("shipping-instructions"), status: "ready" } },
   ]),
   // Created from the deal, waiting for the exporter to confirm.
   seededOrder("ORD-2026-8103", "DL-2026-8103", at("2026-10-06", "08:00"), { number: "PO-2026-8103", issueDate: "2026-10-06", status: "received" }, () => []),
+  // 500 MT produced, nothing allocated yet; fumigation and two certificates outstanding.
+  seededOrder("ORD-2026-8104", "DL-2026-8104", at("2026-09-12", "15:00"), { number: "PO-2026-8104", issueDate: "2026-09-12", status: "acknowledged" }, (doc) => [
+    { type: "supplier-confirmed", by: "supplier", at: at("2026-09-12", "16:00") },
+    { type: "payment-updated", by: "supplier", at: at("2026-09-15"), paymentStep: "lc-received" },
+    { type: "production-started", by: "supplier", at: at("2026-09-16"), plannedStart: "2026-09-15", note: "Parboiling at Sonipat unit." },
+    { type: "cargo-ready-date-set", by: "supplier", at: at("2026-09-17"), expectedCargoReady: "2026-10-06" },
+    { type: "payment-updated", by: "supplier", at: at("2026-09-17", "09:00"), paymentStep: "under-review" },
+    { type: "payment-updated", by: "supplier", at: at("2026-09-19"), paymentStep: "confirmed" },
+    { type: "production-updated", by: "supplier", at: at("2026-09-28"), producedQuantity: 250 },
+    { type: "production-completed", by: "supplier", at: at("2026-10-05"), producedQuantity: 500, actualCargoReady: "2026-10-05", note: "500 MT bagged in 50 kg PP bags." },
+    { type: "document-updated", by: "supplier", at: at("2026-10-05", "08:00"), document: { id: doc("commercial-invoice"), status: "ready" } },
+    { type: "document-updated", by: "supplier", at: at("2026-10-05", "09:00"), document: { id: doc("packing-list"), status: "ready" } },
+    { type: "document-updated", by: "supplier", at: at("2026-10-06"), document: { id: doc("certificate-of-origin"), status: "preparing" } },
+    { type: "document-updated", by: "supplier", at: at("2026-10-06", "07:00"), document: { id: doc("phytosanitary-certificate"), status: "preparing" } },
+    { type: "document-updated", by: "supplier", at: at("2026-10-06", "08:00"), document: { id: doc("insurance-certificate"), status: "ready" } },
+  ]),
 ];
 
 export const SEEDED_ORDER_IDS = SEEDED_ORDERS.map((o) => o.id);

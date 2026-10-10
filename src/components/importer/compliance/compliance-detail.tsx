@@ -13,9 +13,8 @@ import { useDocuments, useDocumentsLoaded } from "../documents/document-store";
 import { useOrders } from "../orders/order-store";
 import { SumitAnalysisCard } from "../quotations/sumit-analysis-card";
 import { useShipments } from "../shipments/shipment-store";
-import { customsCaseForShipment } from "@/lib/importer-customs";
+import { CUSTOMS_CASE_STATUS_LABEL, customsCaseForShipment } from "@/lib/importer-customs";
 import { useCustomsCases } from "../customs/customs-store";
-import { CustomsStatusBadge } from "../customs/customs-ui";
 import { ReadinessStatusBadge, ShipmentStatusBadge } from "../shipments/shipment-ui";
 import { focusRing, secondaryButton } from "../styles";
 import { COMPLIANCE_PROMPTS } from "./compliance-list";
@@ -207,7 +206,7 @@ export function ComplianceDetail({ shipmentId }: { shipmentId: string }) {
         <Panel id="customs-prep" title="Customs Preparation" description="Readiness only. No customs filing is made from XimVerse.">
           <div className="px-5 pb-5 pt-3 text-sm sm:px-6">
             <p className="mb-2 font-semibold text-ink">
-              Result: {CUSTOMS_STATUS_LABEL[a.customs.status]}
+              Result: {customsCase ? CUSTOMS_CASE_STATUS_LABEL[customsCase.status] : CUSTOMS_STATUS_LABEL[a.customs.status]}
             </p>
             <dl className="divide-y divide-line">
               {a.customs.items.map((item) => (
@@ -221,10 +220,9 @@ export function ComplianceDetail({ shipmentId }: { shipmentId: string }) {
               ))}
             </dl>
             {customsCase && (
-              <p className="mt-2 flex flex-wrap items-center gap-2 text-ink-muted">
-                Customs case
+              <p className="mt-2 text-ink-muted">
+                From customs case{" "}
                 <Link href={importerHref(`customs/${customsCase.id}`)} className={`rounded font-mono text-teal hover:underline ${focusRing}`}>{customsCase.id}</Link>
-                <CustomsStatusBadge status={customsCase.status} />
               </p>
             )}
             <p className="mt-2 text-xs text-ink-faint">Planned ETA {formatDate(st.schedule.eta)}.</p>

@@ -12,6 +12,20 @@
           }
         ]
       }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit|NotebookEdit|Bash|PowerShell",
+        "hooks": [
+          {
+            "type": "command",
+            "shell": "powershell",
+            "command": "powershell -NoProfile -ExecutionPolicy Bypass -File \"$env:CLAUDE_PROJECT_DIR\\.claude\\hooks\\auto-commit.ps1\" -MinIntervalMinutes 10",
+            "timeout": 120,
+            "async": true
+          }
+        ]
+      }
     ]
   }
 }

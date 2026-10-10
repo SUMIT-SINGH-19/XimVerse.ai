@@ -81,6 +81,11 @@ function combine(s: StoredState): ExporterOrder[] {
   }));
 }
 
+/** All orders right now (seeds plus this browser), for use outside React. */
+export function loadOrders(): ExporterOrder[] {
+  return combine(parse(readRaw()));
+}
+
 /** All orders, live. Server render and hydration see the seeds only. */
 export function useExporterOrders(): ExporterOrder[] {
   const raw = useSyncExternalStore(subscribe, readRaw, () => null);

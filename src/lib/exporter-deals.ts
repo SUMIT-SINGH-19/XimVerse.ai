@@ -392,6 +392,8 @@ export const SEEDED_DEALS: readonly ExporterDeal[] = [
   seededDeal("DL-2026-8102", "QT-2026-8132", { createdAt: "2026-08-26T12:00:00Z", confirmedAt: "2026-08-26T15:00:00Z", access: "protected" }),
   // Accepted as submitted (EUR), no negotiation.
   seededDeal("DL-2026-8103", "QT-2026-8126", { createdAt: "2026-10-05T09:00:00Z", confirmedAt: "2026-10-05T12:00:00Z", access: "protected" }),
+  // 500 MT, accepted directly; executed in several shipments.
+  seededDeal("DL-2026-8104", "QT-2026-8118", { createdAt: "2026-09-12T11:00:00Z", confirmedAt: "2026-09-12T14:00:00Z", access: "protected" }),
 ];
 
 export const SEEDED_DEAL_IDS = SEEDED_DEALS.map((d) => d.id);

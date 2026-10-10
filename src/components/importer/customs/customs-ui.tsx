@@ -76,30 +76,3 @@ export function CustomsNotice() {
     </p>
   );
 }
-
-/** Customs case summary shown on shipment and compliance pages. */
-export function CaseSummaryRows({ view }: { view: CustomsCaseView }) {
-  return (
-    <dl className="divide-y divide-line">
-      <div className="flex justify-between gap-4 py-2">
-        <dt className="text-ink-muted">Customs case</dt>
-        <dd className="font-mono text-ink">{view.id}</dd>
-      </div>
-      <div className="flex justify-between gap-4 py-2">
-        <dt className="text-ink-muted">Assigned CHA</dt>
-        <dd className="min-w-0 break-words text-right text-ink">{view.cha?.company ?? "Not assigned"}</dd>
-      </div>
-      <div className="flex items-center justify-between gap-4 py-2">
-        <dt className="text-ink-muted">Readiness</dt>
-        <dd><CustomsReadinessBadge readiness={view.readiness} /></dd>
-      </div>
-      <div className="flex items-center justify-between gap-4 py-2">
-        <dt className="text-ink-muted">Case status</dt>
-        <dd className="flex flex-wrap items-center justify-end gap-2">
-          <CustomsStatusBadge status={view.status} />
-          <StatusRecordTag view={view} />
-        </dd>
-      </div>
-    </dl>
-  );
-}

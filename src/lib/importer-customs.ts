@@ -16,7 +16,7 @@
 
 import type { Currency } from "./import-requirements";
 import { customsPrep, type CustomsPrepItem } from "./importer-compliance";
-import { describeDocumentEvent, isMissing, type TradeDocument } from "./importer-documents";
+import { DOCUMENT_SOURCE_LABEL, describeDocumentEvent, isMissing, type TradeDocument } from "./importer-documents";
 import { importerHref, PLACEHOLDER_IMPORTER } from "./importer-nav";
 import { orderStatus, orderValue, type Order } from "./importer-orders";
 import {
@@ -493,6 +493,8 @@ export function customsCaseView(c: CustomsCase, shipments: readonly Shipment[], 
 
   const clarifications = clarificationsOf(c);
   const unresolved = clarifications.some((x) => x.status !== "resolved");
+  // The broker must hold the current package before the case is Ready for Filing.
+  const pendingChanges = changedSinceHandoff.length > 0;
   const hard = blockers.some((b) => b.kind === "document-missing" || b.kind === "document-expired" || b.kind === "hs-code");
   const readiness: CustomsReadiness = hard
     ? "blocked"
@@ -500,7 +502,7 @@ export function customsCaseView(c: CustomsCase, shipments: readonly Shipment[], 
       ? "preparing"
       : !handoff
         ? "ready-for-handoff"
-        : unresolved
+        : unresolved || pendingChanges
           ? "preparing"
           : "ready-for-filing";
 
@@ -509,7 +511,7 @@ export function customsCaseView(c: CustomsCase, shipments: readonly Shipment[], 
   if (progress) status = progress.customs as CustomsCaseStatus;
   else if (!handoff) status = blockers.length ? "preparing" : "ready-for-handoff";
   else if (clarifications.some((x) => x.status === "open")) status = "clarification-required";
-  else if (blockers.length || unresolved) status = "with-cha";
+  else if (blockers.length || unresolved || pendingChanges) status = "with-cha";
   else status = "ready-for-filing";
 
   const updatedAt = [c.createdAt, ...c.events.map((e) => e.at), ...customsEvents(s).map((e) => e.at), ...docs.map((d) => d.updatedAt)].reduce((a, b) => (b > a ? b : a));
@@ -683,7 +685,7 @@ export function customsActivity(v: CustomsCaseView): CustomsActivity[] {
       id: `doc-${e.id}`,
       at: e.at,
       text: describeDocumentEvent(e, d.label),
-      party: e.by === "importer" ? "You" : e.by === "system" ? "XimVerse" : e.by.replace("-", " ").replace(/^./, (x) => x.toUpperCase()),
+      party: e.by === "importer" ? "You" : e.by === "system" ? "XimVerse" : DOCUMENT_SOURCE_LABEL[e.by],
       byYou: e.by === "importer",
       demo: e.demo,
       note: e.note,

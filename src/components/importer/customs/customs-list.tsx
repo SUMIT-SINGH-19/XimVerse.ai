@@ -182,7 +182,7 @@ function Table({ cases }: { cases: CustomsCaseView[] }) {
   const heads = ["Case", "Shipment", "Supplier", "Product", "Port", "CHA", "Readiness", "Status", "ETA", "Updated"];
   return (
     <div className="relative hidden overflow-x-auto xl:block">
-      <table className="w-full min-w-[72rem] text-left text-sm">
+      <table className="w-full min-w-[66rem] text-left text-sm">
         <thead>
           <tr className="border-y border-line bg-canvas/60 text-xs text-ink-muted">
             {heads.map((h, i) => (

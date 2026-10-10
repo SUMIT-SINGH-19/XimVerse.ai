@@ -34,7 +34,7 @@ import { demoTag } from "./customs-ui";
 
 const inputClass =
   "h-10 w-full rounded-lg border border-line bg-surface px-3 text-sm text-ink placeholder:text-ink-faint focus:border-teal focus:outline-none focus:ring-2 focus:ring-teal/20 aria-[invalid=true]:border-orange";
-const textLink = `inline-flex items-center gap-1 rounded text-xs font-semibold text-teal hover:underline ${focusRing}`;
+const sourceLink = `inline-flex items-center rounded text-xs font-medium text-ink-muted underline decoration-line underline-offset-2 hover:text-teal hover:decoration-teal ${focusRing}`;
 const smallButton = `inline-flex h-9 items-center gap-1.5 rounded-lg border border-line px-3 text-sm font-semibold text-ink transition hover:border-teal/40 hover:bg-teal-soft disabled:cursor-not-allowed disabled:opacity-40 ${focusRing}`;
 
 type Say = (message: string) => void;
@@ -201,7 +201,7 @@ export function DeclarationSection({ view, onMessage }: { view: CustomsCaseView;
 }
 
 function FieldRow({ f }: { f: DeclarationField }) {
-  const upstream = f.source && f.source !== "manual" && f.source !== "importer-profile";
+  const shown = f.value && f.id === "invoiceDate" ? formatDate(f.value) : f.value;
   return (
     <div className="min-w-0" data-field={f.id}>
       <dt className="flex flex-wrap items-center gap-x-2 text-xs font-medium text-ink-faint">
@@ -209,13 +209,13 @@ function FieldRow({ f }: { f: DeclarationField }) {
         {f.source && <span className="rounded border border-line px-1 font-normal text-ink-muted">{FIELD_SOURCE_LABEL[f.source]}</span>}
       </dt>
       <dd className="mt-1 break-words text-sm">
-        {f.value ? (
-          <span className="text-ink">{f.value}</span>
+        {shown ? (
+          <span className="text-ink">{shown}</span>
         ) : (
           <span className="font-medium text-orange">{f.id === "hsCode" ? "HS Code required." : f.required ? "Not provided" : "Not entered"}</span>
         )}
-        {(upstream || (!f.value && f.sourceHref && !f.manual)) && f.sourceHref && (
-          <Link href={f.sourceHref} className={`${textLink} ml-2`}>
+        {f.sourceHref && (
+          <Link href={f.sourceHref} className={`${sourceLink} ml-2`}>
             Update source record<span className="sr-only"> for {f.label}</span>
           </Link>
         )}
@@ -354,7 +354,7 @@ export function HandoffSection({ view, onMessage }: { view: CustomsCaseView; onM
         <div id="handoff-readiness" className={`rounded-xl px-4 py-3 ${outstanding.length ? "bg-orange-soft/40" : "bg-teal-soft/50"}`}>
           {outstanding.length ? (
             <>
-              <p className="font-semibold text-ink">Handoff blocked</p>
+              <p className="font-semibold text-ink">{view.handoff ? "Open items before filing" : "Handoff blocked"}</p>
               <p className="mt-0.5 text-ink-muted">{outstanding.length} {outstanding.length === 1 ? "item needs" : "items need"} attention:</p>
               <ul className="mt-1.5 list-disc space-y-0.5 pl-5 text-ink">
                 {outstanding.map((b) => (
@@ -366,6 +366,8 @@ export function HandoffSection({ view, onMessage }: { view: CustomsCaseView; onM
             </>
           ) : view.handoff && view.changedSinceHandoff.length === 0 ? (
             <p className="flex gap-2 font-semibold text-ink"><CircleCheck aria-hidden className="mt-0.5 size-4 shrink-0 text-teal" />Handoff recorded to {view.handoff.cha.company}.</p>
+          ) : view.handoff ? (
+            <p className="flex gap-2 font-semibold text-ink"><CircleAlert aria-hidden className="mt-0.5 size-4 shrink-0 text-orange" />Ready to record an updated handoff to {view.cha?.company}.</p>
           ) : (
             <p className="flex gap-2 font-semibold text-ink"><CircleCheck aria-hidden className="mt-0.5 size-4 shrink-0 text-teal" />Ready for handoff to {view.cha?.company}.</p>
           )}

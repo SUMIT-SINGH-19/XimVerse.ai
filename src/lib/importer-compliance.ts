@@ -21,6 +21,7 @@ import {
   blockingItems,
   customsStatus,
   preShipmentChecklist,
+  type CustomsOverride,
   type CustomsStatus,
   type ReadinessItem,
   type Shipment,
@@ -90,10 +91,13 @@ export function assessShipment(input: {
   documents: readonly TradeDocument[];
   order?: Order;
   supplierConfirmed: boolean;
+  /** From the shipment's customs case, when one exists. */
+  customs?: CustomsOverride;
 }): ComplianceAssessment {
-  const { shipment: s, state: st, order, supplierConfirmed } = input;
+  const { shipment: s, state: st, order, supplierConfirmed, customs } = input;
   const docs = input.documents.filter((d) => d.shipmentId === s.id);
-  const checklist = preShipmentChecklist(s, st, supplierConfirmed, docs);
+  const checklist = preShipmentChecklist(s, st, supplierConfirmed, docs, customs);
+  const broker = customs ? customs.broker : s.parties.customsBroker;
   const status = st.status;
   const customsStage = ["in-transit", "arrived", "customs"].includes(status);
   const delivered = status === "delivered";
@@ -156,7 +160,7 @@ export function assessShipment(input: {
       if (item.id === "confirmation") add({ id: "confirmation", severity: "blocking", title: "Supplier confirmation not recorded", detail: "The supplier must confirm the order first." });
     }
   }
-  if (!s.parties.customsBroker && !delivered) {
+  if (!broker && !delivered) {
     add({
       id: "broker",
       severity: customsStage ? "review" : "information",
@@ -186,7 +190,7 @@ export function assessShipment(input: {
   const severityOrder: Record<IssueSeverity, number> = { blocking: 0, review: 1, information: 2 };
   issues.sort((a, b) => severityOrder[a.severity] - severityOrder[b.severity]);
 
-  return { readiness, summary, stageGoal, issues, missingRequired, documents: docs, consistency, checklist, customs: customsPrep(s, st, docs) };
+  return { readiness, summary, stageGoal, issues, missingRequired, documents: docs, consistency, checklist, customs: customsPrep(s, st, docs, customs) };
 }
 
 function consistencyChecks(s: Shipment, st: ShipmentState, docs: readonly TradeDocument[], order: Order | undefined, supplierConfirmed: boolean): ConsistencyCheck[] {
@@ -208,7 +212,10 @@ function consistencyChecks(s: Shipment, st: ShipmentState, docs: readonly TradeD
   ];
 }
 
-function customsPrep(s: Shipment, st: ShipmentState, docs: readonly TradeDocument[]): ComplianceAssessment["customs"] {
+/** Customs preparation items; the customs workspace shows the same items. */
+export function customsPrep(s: Shipment, st: ShipmentState, docs: readonly TradeDocument[], customs?: CustomsOverride): ComplianceAssessment["customs"] {
+  const broker = customs ? customs.broker : s.parties.customsBroker;
+  const hsCode = customs?.hsCode ?? s.hsCode;
   const doc = (type: TradeDocument["type"]) => docs.find((d) => d.type === type);
   const docItem = (id: string, d: TradeDocument | undefined, label?: string): CustomsPrepItem => ({
     id,
@@ -219,10 +226,10 @@ function customsPrep(s: Shipment, st: ShipmentState, docs: readonly TradeDocumen
   const certs = docs.filter((d) => d.type === "product-certificate");
   const certsOk = certs.every((d) => d.complete);
   return {
-    status: customsStatus(s, st, docs),
+    status: customsStatus(s, st, docs, customs),
     items: [
       { id: "importer", label: "Importer information", value: `Available (${PLACEHOLDER_IMPORTER.company})`, ok: true },
-      { id: "hs", label: "HS code", value: s.hsCode ?? "Not provided", ok: !!s.hsCode },
+      { id: "hs", label: "HS code", value: hsCode ?? "Not provided", ok: !!hsCode },
       docItem("ci", doc("commercial-invoice")),
       docItem("pl", doc("packing-list")),
       docItem("coo", doc("certificate-of-origin")),
@@ -233,7 +240,7 @@ function customsPrep(s: Shipment, st: ShipmentState, docs: readonly TradeDocumen
         ok: certsOk,
       },
       docItem("td", doc("transport-document"), "Transport document"),
-      { id: "broker", label: "Customs broker", value: s.parties.customsBroker ?? "Not assigned", ok: !!s.parties.customsBroker },
+      { id: "broker", label: "Customs broker", value: broker ?? "Not assigned", ok: !!broker },
     ],
   };
 }

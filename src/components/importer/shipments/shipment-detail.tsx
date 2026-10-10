@@ -50,6 +50,9 @@ import {
   type TradeDocument,
 } from "@/lib/importer-documents";
 import { approveForWorkflow, issueDocument, markDocumentAvailable, requestDocument, useDocuments } from "../documents/document-store";
+import { customsCaseForShipment, type CustomsCaseView } from "@/lib/importer-customs";
+import { useCustomsCases } from "../customs/customs-store";
+import { CaseSummaryRows } from "../customs/customs-ui";
 
 const backLink = `inline-flex items-center gap-1.5 rounded-md text-sm font-medium text-ink-muted hover:text-teal ${focusRing}`;
 const textLink = `inline-flex items-center gap-1 rounded text-sm font-semibold text-teal hover:underline ${focusRing}`;
@@ -87,9 +90,12 @@ function Workspace({ sh }: { sh: Shipment }) {
   const st = shipmentState(sh);
   const supplierConfirmed = !!order?.events.some((e) => e.type === "supplier-confirmed");
   const docs = documentsForShipment(sh.id, useDocuments());
-  const checklist = preShipmentChecklist(sh, st, supplierConfirmed, docs);
+  // One shared lookup: the shipment's customs case, if any, owns broker and customs status.
+  const customsCase = customsCaseForShipment(sh.id, useCustomsCases());
+  const override = customsCase?.override;
+  const checklist = preShipmentChecklist(sh, st, supplierConfirmed, docs, override);
   const blocking = blockingItems(checklist);
-  const customs = customsStatus(sh, st, docs);
+  const customs = customsStatus(sh, st, docs, override);
   const [message, setMessage] = useState("");
 
   const run = (fn: () => string | void, success: string) => {
@@ -130,12 +136,13 @@ function Workspace({ sh }: { sh: Shipment }) {
 
       <section aria-labelledby="next-action" className="rounded-2xl border border-line bg-surface px-5 py-4 shadow-[0_1px_2px_rgba(11,46,48,0.04),0_8px_24px_rgba(11,46,48,0.05)] sm:px-6">
         <p className="text-xs font-semibold uppercase tracking-[0.14em] text-orange">Next action</p>
-        <h2 id="next-action" className="mt-1 text-lg font-semibold text-ink">{nextAction(sh, st, checklist, docs)}</h2>
+        <h2 id="next-action" className="mt-1 text-lg font-semibold text-ink">{nextAction(sh, st, checklist, docs, override)}</h2>
         <StatusActions
           st={st}
           blockingCount={blocking.length}
           customsCleared={customs === "cleared"}
-          onAdvance={(to) => run(() => advanceStatus(sh.id, to, supplierConfirmed, docs), "Status updated.")}
+          customsCaseId={customsCase?.id}
+          onAdvance={(to) => run(() => advanceStatus(sh.id, to, supplierConfirmed, docs, override), "Status updated.")}
           onCargoReady={() => run(() => markCargoReady(sh.id), "Cargo marked ready.")}
           onClear={() => run(() => simulateCustomsClearance(sh.id), "Demo customs clearance recorded.")}
         />
@@ -159,7 +166,7 @@ function Workspace({ sh }: { sh: Shipment }) {
                   ["Transport mode", modeLabel(sh.route.mode)],
                   ["Incoterm", sh.incoterm],
                   ["Current stage", stageLabel(st.stage)],
-                  ["Next action", nextAction(sh, st, checklist, docs)],
+                  ["Next action", nextAction(sh, st, checklist, docs, override)],
                 ]}
               />
             </div>
@@ -260,7 +267,7 @@ function Workspace({ sh }: { sh: Shipment }) {
 
         <div className="space-y-6">
           <Freight sh={sh} st={st} onMessage={setMessage} />
-          <Customs sh={sh} st={st} docs={docs} customs={customs} />
+          <Customs sh={sh} st={st} docs={docs} customs={customs} customsCase={customsCase} />
           <SumitAnalysisCard
             id="sumit-shipment"
             heading="Ask SUMIT about this shipment"
@@ -338,6 +345,7 @@ function StatusActions({
   st,
   blockingCount,
   customsCleared,
+  customsCaseId,
   onAdvance,
   onCargoReady,
   onClear,
@@ -345,6 +353,7 @@ function StatusActions({
   st: ShipmentState;
   blockingCount: number;
   customsCleared: boolean;
+  customsCaseId?: string;
   onAdvance: (to: ShipmentStatus) => void;
   onCargoReady: () => void;
   onClear: () => void;
@@ -382,7 +391,12 @@ function StatusActions({
             {demoTag}
           </button>
         )}
-        {st.status === "customs" && !customsCleared && (
+        {st.status === "customs" && !customsCleared && customsCaseId && (
+          <Link href={importerHref(`customs/${customsCaseId}`)} className={`${secondaryButton} ${wrap}`}>
+            Continue in Customs Case
+          </Link>
+        )}
+        {st.status === "customs" && !customsCleared && !customsCaseId && (
           <button type="button" onClick={onClear} className={`${secondaryButton} ${wrap}`}>
             <FlaskConical aria-hidden className="size-4 text-orange" />
             Simulate Customs Clearance
@@ -642,7 +656,20 @@ function Freight({ sh, st, onMessage }: { sh: Shipment; st: ShipmentState; onMes
   );
 }
 
-function Customs({ sh, st, docs, customs }: { sh: Shipment; st: ShipmentState; docs: TradeDocument[]; customs: ReturnType<typeof customsStatus> }) {
+function Customs({
+  sh,
+  st,
+  docs,
+  customs,
+  customsCase,
+}: {
+  sh: Shipment;
+  st: ShipmentState;
+  docs: TradeDocument[];
+  customs: ReturnType<typeof customsStatus>;
+  customsCase?: CustomsCaseView;
+}) {
+  const broker = customsCase ? customsCase.cha?.company : sh.parties.customsBroker;
   const doc = (type: TradeDocument["type"]) => docs.find((d) => d.type === type);
   const docStatus = (type: TradeDocument["type"]) => {
     const d = doc(type);
@@ -656,8 +683,8 @@ function Customs({ sh, st, docs, customs }: { sh: Shipment; st: ShipmentState; d
       <div className="px-5 pb-5 pt-3 text-sm sm:px-6">
         <dl className="divide-y divide-line">
           {[
-            ["CHA / customs broker", sh.parties.customsBroker ?? "Not assigned"],
-            ["HS code", sh.hsCode ?? "—"],
+            ["CHA / customs broker", broker ?? "Not assigned"],
+            ["HS code", customsCase?.override.hsCode ?? sh.hsCode ?? "—"],
             ["Importer details", `Available (${PLACEHOLDER_IMPORTER.company})`],
             ["Commercial Invoice", docStatus("commercial-invoice")],
             ["Packing List", docStatus("packing-list")],
@@ -679,17 +706,25 @@ function Customs({ sh, st, docs, customs }: { sh: Shipment; st: ShipmentState; d
             </dd>
           </div>
         </dl>
-        {!sh.parties.customsBroker && (
-          <div className="mt-3 space-y-2">
-            <p className="flex gap-2 text-ink-muted">
-              <CircleAlert aria-hidden className="mt-0.5 size-4 shrink-0 text-orange" />
-              No customs broker has been assigned yet.
-            </p>
-            <button type="button" disabled className={`${secondaryButton} h-10 w-full`}>
-              <Lock aria-hidden className="size-4" />
-              Assign Customs Broker
-            </button>
-            <p className="text-xs text-ink-faint">Customs broker assignment will be connected later.</p>
+        {!broker && (
+          <p className="mt-3 flex gap-2 text-ink-muted">
+            <CircleAlert aria-hidden className="mt-0.5 size-4 shrink-0 text-orange" />
+            No customs broker has been assigned yet.
+          </p>
+        )}
+        {customsCase ? (
+          <div className="mt-4 border-t border-line pt-3">
+            <CaseSummaryRows view={customsCase} />
+            <Link href={importerHref(`customs/${customsCase.id}`)} className={`${secondaryButton} mt-3 h-10 w-full`}>
+              View Customs Case
+            </Link>
+          </div>
+        ) : (
+          <div className="mt-4 space-y-2">
+            <Link href={`${importerHref("customs/new")}?shipment=${sh.id}`} className={`${secondaryButton} h-10 w-full`}>
+              Prepare Customs
+            </Link>
+            <p className="text-xs text-ink-faint">Start customs preparation and assign a broker before arrival.</p>
           </div>
         )}
       </div>

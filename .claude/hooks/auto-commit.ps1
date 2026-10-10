@@ -1,7 +1,7 @@
 # Stop hook: snapshot the working tree to GitHub after every Claude turn,
 # so each step can be rolled back with git.
 $ErrorActionPreference = 'Stop'
-Set-Location (git rev-parse --show-toplevel)
+Set-Location (Join-Path $PSScriptRoot '..\..')
 
 $changes = git status --porcelain
 if (-not $changes) { exit 0 }

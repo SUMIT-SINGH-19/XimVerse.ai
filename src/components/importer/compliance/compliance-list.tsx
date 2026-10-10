@@ -11,6 +11,7 @@ import { ImporterPageHeader } from "../importer-page-header";
 import { useOrders } from "../orders/order-store";
 import { SumitAnalysisCard } from "../quotations/sumit-analysis-card";
 import { useShipments } from "../shipments/shipment-store";
+import { useCustomsCases } from "../customs/customs-store";
 import { focusRing } from "../styles";
 import { assess, Disclaimer, ReadinessBadge } from "./compliance-ui";
 
@@ -26,10 +27,11 @@ export function ComplianceList() {
   const shipments = useShipments();
   const documents = useDocuments();
   const orders = useOrders();
+  const customsCases = useCustomsCases();
 
   const rows = shipments
     .map((sh) => {
-      const a = assess(sh, documents, orders);
+      const a = assess(sh, documents, orders, customsCases);
       const required = a.documents.filter((d) => d.requirement.level === "required");
       return {
         sh,

@@ -14,6 +14,7 @@ import {
   preShipmentChecklist,
   shipmentEligibility,
   shipmentState,
+  type CustomsOverride,
   type CustomsStatus,
   type Shipment,
   type ShipmentCargo,
@@ -177,23 +178,26 @@ const DEMO_STATUSES: readonly ShipmentStatus[] = ["at-origin", "in-transit", "ar
 /**
  * Moves a shipment to its next status. Only the single allowed next step is
  * accepted, Ready to Ship requires the readiness checklist, and Delivered
- * requires customs clearance. Returns an error message when blocked.
+ * requires customs clearance. When the shipment has a customs case, that
+ * case owns customs progression, so moving into the Customs stage records no
+ * customs status. Returns an error message when blocked.
  */
 export function advanceStatus(
   shipmentId: string,
   to: ShipmentStatus,
   supplierConfirmed: boolean,
   documents: readonly TradeDocument[],
+  customs?: CustomsOverride,
 ): string | undefined {
   const sh = find(shipmentId);
   if (!sh) return "Shipment not found.";
   const st = shipmentState(sh);
   if (NEXT_STATUS[st.status] !== to) return "That status change isn't allowed from the current status.";
   if (to === "ready-to-ship") {
-    const blocking = blockingItems(preShipmentChecklist(sh, st, supplierConfirmed, documents));
+    const blocking = blockingItems(preShipmentChecklist(sh, st, supplierConfirmed, documents, customs));
     if (blocking.length) return `Complete ${blocking.length} required ${blocking.length === 1 ? "item" : "items"} before marking this shipment Ready to Ship.`;
   }
-  if (to === "delivered" && customsStatus(sh, st, documents) !== "cleared") return "Customs must be cleared before the shipment is marked delivered.";
+  if (to === "delivered" && customsStatus(sh, st, documents, customs) !== "cleared") return "Customs must be cleared before the shipment is marked delivered.";
   const demo = DEMO_STATUSES.includes(to);
   append(shipmentId, {
     type: "status-changed",
@@ -202,7 +206,7 @@ export function advanceStatus(
     status: to,
     note: demo ? "Demo status — no carrier or tracking system is connected." : undefined,
   });
-  if (to === "customs") {
+  if (to === "customs" && !customs) {
     append(shipmentId, { type: "customs-updated", by: "customs-broker", demo: true, customs: "under-assessment", note: "Demo status — no customs filing was made." });
   }
 }
@@ -211,4 +215,13 @@ export function simulateCustomsClearance(shipmentId: string) {
   const sh = find(shipmentId);
   if (!sh || shipmentState(sh).status !== "customs") return;
   append(shipmentId, { type: "customs-updated", by: "customs-broker", demo: true, customs: "cleared" satisfies CustomsStatus, note: "Demo status — no customs system is connected." });
+}
+
+/**
+ * Demo customs progression from the customs case (Filed → Under Assessment →
+ * Cleared). Recorded as shipment customs events, where historical customs
+ * records already live. No Customs system is connected.
+ */
+export function recordCustomsProgress(shipmentId: string, customs: "filed" | "under-assessment" | "cleared") {
+  append(shipmentId, { type: "customs-updated", by: "customs-broker", demo: true, customs, note: "Demo status — no Customs system is connected." });
 }

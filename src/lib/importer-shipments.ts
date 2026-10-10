@@ -271,6 +271,19 @@ function docReadiness(d?: TradeDocument): ReadinessStatus {
   return "not-started";
 }
 
+/**
+ * What a shipment's customs case (if one exists) says. When a case exists it
+ * owns the customs broker, any HS code entered there and the customs status, so
+ * shipment, compliance and customs pages all read the same values.
+ */
+export interface CustomsOverride {
+  broker?: string;
+  hsCode?: string;
+  status: CustomsStatus;
+}
+
+const brokerOf = (s: Shipment, customs?: CustomsOverride) => (customs ? customs.broker : s.parties.customsBroker);
+
 export interface ReadinessItem {
   id: string;
   label: string;
@@ -285,6 +298,7 @@ export function preShipmentChecklist(
   state: ShipmentState,
   supplierConfirmed: boolean,
   documents: readonly TradeDocument[],
+  customs?: CustomsOverride,
 ): ReadinessItem[] {
   const docs = documents.filter((d) => d.shipmentId === s.id);
   const doc = (type: TradeDocument["type"]) => docs.find((d) => d.type === type);
@@ -314,7 +328,7 @@ export function preShipmentChecklist(
     },
     { id: "certificates", label: "Product / Regulatory Certificates", status: certStatus, requiredForReady: false },
     { id: "freight", label: "Freight Booking", status: bookingStatus, requiredForReady: true },
-    { id: "broker", label: "Customs Broker / CHA", status: s.parties.customsBroker ? "complete" : "not-started", requiredForReady: false },
+    { id: "broker", label: "Customs Broker / CHA", status: brokerOf(s, customs) ? "complete" : "not-started", requiredForReady: false },
     { id: "instructions", label: "Shipping Instructions", status: docReadiness(doc("shipping-instructions")), requiredForReady: false },
   ];
 }
@@ -323,9 +337,13 @@ export function blockingItems(items: readonly ReadinessItem[]): ReadinessItem[] 
   return items.filter((i) => i.requiredForReady && i.status !== "complete");
 }
 
-/** Customs readiness: explicit (demo/historical) events win; otherwise derived from documents. */
-export function customsStatus(s: Shipment, state: ShipmentState, documents: readonly TradeDocument[]): CustomsStatus {
+/**
+ * Customs readiness: explicit (demo/historical) events win; then the customs
+ * case, if one exists; otherwise derived from documents.
+ */
+export function customsStatus(s: Shipment, state: ShipmentState, documents: readonly TradeDocument[], customs?: CustomsOverride): CustomsStatus {
   if (state.customsEvent) return state.customsEvent;
+  if (customs) return customs.status;
   const doc = (type: TradeDocument["type"]) => documents.find((d) => d.shipmentId === s.id && d.type === type);
   const ci = doc("commercial-invoice");
   const pl = doc("packing-list");
@@ -335,7 +353,13 @@ export function customsStatus(s: Shipment, state: ShipmentState, documents: read
 }
 
 /** The single most useful next step, derived from status and readiness. */
-export function nextAction(s: Shipment, state: ShipmentState, checklist: readonly ReadinessItem[], documents: readonly TradeDocument[]): string {
+export function nextAction(
+  s: Shipment,
+  state: ShipmentState,
+  checklist: readonly ReadinessItem[],
+  documents: readonly TradeDocument[],
+  customs?: CustomsOverride,
+): string {
   switch (state.status) {
     case "preparing": {
       const blocking = blockingItems(checklist)[0];
@@ -351,12 +375,12 @@ export function nextAction(s: Shipment, state: ShipmentState, checklist: readonl
     case "at-origin":
       return "Await departure";
     case "in-transit":
-      if (!s.parties.customsBroker) return "Assign a customs broker before arrival";
-      return customsStatus(s, state, documents) === "ready-for-filing" ? "Await arrival" : "Prepare customs documents";
+      if (!brokerOf(s, customs)) return "Assign a customs broker before arrival";
+      return ["ready-for-filing", "filed", "under-assessment", "cleared"].includes(customsStatus(s, state, documents, customs)) ? "Await arrival" : "Prepare customs documents";
     case "arrived":
       return "Start customs clearance";
     case "customs":
-      return customsStatus(s, state, documents) === "cleared" ? "Mark shipment delivered" : "Await customs clearance";
+      return customsStatus(s, state, documents, customs) === "cleared" ? "Mark shipment delivered" : "Await customs clearance";
     case "delivered":
       return "No further action — shipment delivered";
   }

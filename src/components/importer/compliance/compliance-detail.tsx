@@ -13,6 +13,9 @@ import { useDocuments, useDocumentsLoaded } from "../documents/document-store";
 import { useOrders } from "../orders/order-store";
 import { SumitAnalysisCard } from "../quotations/sumit-analysis-card";
 import { useShipments } from "../shipments/shipment-store";
+import { customsCaseForShipment } from "@/lib/importer-customs";
+import { useCustomsCases } from "../customs/customs-store";
+import { CustomsStatusBadge } from "../customs/customs-ui";
 import { ReadinessStatusBadge, ShipmentStatusBadge } from "../shipments/shipment-ui";
 import { focusRing, secondaryButton } from "../styles";
 import { COMPLIANCE_PROMPTS } from "./compliance-list";
@@ -25,6 +28,7 @@ export function ComplianceDetail({ shipmentId }: { shipmentId: string }) {
   const shipments = useShipments();
   const documents = useDocuments();
   const orders = useOrders();
+  const customsCases = useCustomsCases();
   const loaded = useDocumentsLoaded();
   const sh = shipments.find((s) => s.id === shipmentId);
 
@@ -46,7 +50,8 @@ export function ComplianceDetail({ shipmentId }: { shipmentId: string }) {
   }
 
   const st = shipmentState(sh);
-  const a = assess(sh, documents, orders);
+  const a = assess(sh, documents, orders, customsCases);
+  const customsCase = customsCaseForShipment(sh.id, customsCases);
   const supplier = findSupplier(sh.supplierId);
   const cargoWithCarrier = !["preparing", "ready-to-ship"].includes(st.status);
   const reasons = a.issues.filter((i) => i.severity !== "information");
@@ -74,6 +79,11 @@ export function ComplianceDetail({ shipmentId }: { shipmentId: string }) {
         <div className="mt-3 flex flex-wrap gap-x-5 gap-y-2">
           <Link href={importerHref(`shipments/${sh.id}`)} className={textLink}>View Shipment</Link>
           <Link href={`${importerHref("documents")}?shipment=${sh.id}`} className={textLink}>Manage Documents</Link>
+          {customsCase ? (
+            <Link href={importerHref(`customs/${customsCase.id}`)} className={textLink}>View Customs Case</Link>
+          ) : (
+            <Link href={`${importerHref("customs/new")}?shipment=${sh.id}`} className={textLink}>Prepare Customs</Link>
+          )}
         </div>
       </div>
 
@@ -210,6 +220,13 @@ export function ComplianceDetail({ shipmentId }: { shipmentId: string }) {
                 </div>
               ))}
             </dl>
+            {customsCase && (
+              <p className="mt-2 flex flex-wrap items-center gap-2 text-ink-muted">
+                Customs case
+                <Link href={importerHref(`customs/${customsCase.id}`)} className={`rounded font-mono text-teal hover:underline ${focusRing}`}>{customsCase.id}</Link>
+                <CustomsStatusBadge status={customsCase.status} />
+              </p>
+            )}
             <p className="mt-2 text-xs text-ink-faint">Planned ETA {formatDate(st.schedule.eta)}.</p>
           </div>
         </Panel>

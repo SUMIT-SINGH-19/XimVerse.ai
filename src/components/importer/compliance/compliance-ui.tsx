@@ -5,6 +5,7 @@ import type { Order } from "@/lib/importer-orders";
 import { assessShipment, COMPLIANCE_DISCLAIMER, READINESS_LABEL, SEVERITY_LABEL, type ComplianceAssessment, type IssueSeverity, type Readiness } from "@/lib/importer-compliance";
 import { shipmentState, type Shipment } from "@/lib/importer-shipments";
 import type { TradeDocument } from "@/lib/importer-documents";
+import { customsCaseForShipment, type CustomsCaseView } from "@/lib/importer-customs";
 
 const READINESS_STYLE: Record<Readiness, { cls: string; Icon: typeof Info }> = {
   ready: { cls: "bg-teal-soft text-teal", Icon: CircleCheck },
@@ -47,8 +48,8 @@ export function Disclaimer() {
   );
 }
 
-/** Assessment for one shipment from the shared stores' current values. */
-export function assess(shipment: Shipment, documents: readonly TradeDocument[], orders: readonly Order[]): ComplianceAssessment {
+/** Assessment for one shipment from the shared stores' current values (customs case included). */
+export function assess(shipment: Shipment, documents: readonly TradeDocument[], orders: readonly Order[], customsCases: readonly CustomsCaseView[]): ComplianceAssessment {
   const order = orders.find((o) => o.id === shipment.orderId);
   return assessShipment({
     shipment,
@@ -56,5 +57,6 @@ export function assess(shipment: Shipment, documents: readonly TradeDocument[], 
     documents,
     order,
     supplierConfirmed: !!order?.events.some((e) => e.type === "supplier-confirmed"),
+    customs: customsCaseForShipment(shipment.id, customsCases)?.override,
   });
 }

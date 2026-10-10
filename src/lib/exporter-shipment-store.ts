@@ -174,20 +174,29 @@ function append(id: string, event: Omit<ShipmentEvent, "id" | "at" | "demo">): A
   const c = current(id);
   if (!c) return fail("Shipment not found");
   if (c.st.status === "cancelled") return fail("Shipment is cancelled");
+  if (c.st.status === "delivered") return fail("Shipment is delivered");
   const next: ShipmentEvent = { ...event, id: `${id}-e${c.sh.events.length}`, at: negotiationNow(), demo: true };
   return commit({ ...c.s, appended: { ...c.s.appended, [id]: [...(c.s.appended[id] ?? []), next] } }) ? { ok: true } : fail("Couldn't save");
 }
 
+/** Freight parties and booking can change until the cargo departs. */
+function departed(id: string): boolean {
+  return Boolean(current(id)?.st.milestones.departed);
+}
+
 export function assignForwarder(id: string, name: string): ActionResult {
+  if (departed(id)) return fail("Cargo has departed — freight details are locked");
   return name.trim() ? append(id, { type: "forwarder-assigned", by: "supplier", party: name.trim() }) : fail("Enter the forwarder name");
 }
 
 export function assignCarrier(id: string, name: string): ActionResult {
+  if (departed(id)) return fail("Cargo has departed — freight details are locked");
   return name.trim() ? append(id, { type: "carrier-assigned", by: "supplier", party: name.trim() }) : fail("Enter the carrier name");
 }
 
 export function addBooking(id: string, reference: string): ActionResult {
   const c = current(id);
+  if (c?.st.milestones.departed) return fail("Cargo has departed — freight details are locked");
   if (!c?.st.forwarder) return fail("Assign a forwarder first");
   return reference.trim() ? append(id, { type: "booking-added", by: "freight-forwarder", bookingReference: reference.trim() }) : fail("Enter the booking reference");
 }
@@ -203,9 +212,11 @@ export function updateSchedule(id: string, etd?: string, eta?: string): ActionRe
   return append(id, { type: "schedule-updated", by: "supplier", schedule: { ...(etd ? { etd } : {}), ...(eta ? { eta } : {}) } });
 }
 
+/** Cargo details lock once the shipping bill is filed — the bill declares them. */
 export function updateCargo(id: string, cargo: Partial<CargoDetails>): ActionResult {
   const c = current(id);
   if (!c) return fail("Shipment not found");
+  if (shippingBillIndex(c.st.shippingBill) >= shippingBillIndex("filed")) return fail("The shipping bill is filed — cargo details are locked (demo)");
   const merged = { ...c.st.cargo, ...cargo };
   for (const k of ["packages", "netWeightKg", "grossWeightKg"] as const) {
     if (merged[k] !== undefined && !(Number(merged[k]) > 0)) return fail("Packages and weights must be above 0");
@@ -218,6 +229,7 @@ export function updateContainer(id: string, container: Partial<ContainerDetails>
   const c = current(id);
   if (!c) return fail("Shipment not found");
   if (!usesContainers(c.sh.route)) return fail("Containers apply to FCL sea shipments only");
+  if (c.st.milestones.loaded || c.st.milestones.departed) return fail("Cargo is loaded — container details are locked");
   if (container.count !== undefined && !(container.count > 0)) return fail("Container count must be above 0");
   return append(id, { type: "container-updated", by: "supplier", container });
 }
@@ -229,7 +241,10 @@ export function updateVessel(id: string, vessel: Partial<VesselDetails>): Action
   return append(id, { type: "vessel-updated", by: "supplier", vessel: Object.fromEntries(entries.map(([k, v]) => [k, (v as string).trim()])) });
 }
 
+/** Editing after "ready" sends the instructions back to draft. */
 export function updateInstructions(id: string, instructions: Partial<ShippingInstructions>): ActionResult {
+  if (departed(id)) return fail("Cargo has departed — instructions are locked");
+  if (!Object.values(instructions).some((v) => v?.trim())) return fail("Enter at least one instruction");
   return append(id, { type: "instructions-updated", by: "supplier", instructions });
 }
 

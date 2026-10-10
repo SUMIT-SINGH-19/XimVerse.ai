@@ -679,54 +679,64 @@ export function shipmentMilestones(sh: ExporterShipment, st: ShipmentState, os: 
   return rows;
 }
 
+/** Detail-page section that resolves an action. */
+export type ShipmentSection = "cargo" | "containers" | "freight" | "instructions" | "customs" | "transport-document" | "documents" | "tracking" | "order";
+
+export interface ShipmentAction {
+  text: string;
+  section: ShipmentSection;
+}
+
 /** Derived to-dos; each disappears once resolved. */
-export function shipmentActions(sh: ExporterShipment, st: ShipmentState, os: OrderState): string[] {
+export function shipmentActions(sh: ExporterShipment, st: ShipmentState, os: OrderState): ShipmentAction[] {
   if (st.status === "cancelled" || st.status === "delivered") return [];
-  const out: string[] = [];
+  const out: ShipmentAction[] = [];
+  const add = (text: string, section: ShipmentSection) => out.push({ text, section });
   if (isPreDeparture(st.status)) {
-    if (!st.forwarder) out.push("Forwarder not assigned");
-    if (!st.carrier) out.push(sh.route.mode === "air" ? "Airline not assigned" : "Carrier not assigned");
-    if (!st.bookingReference) out.push("Booking reference missing");
-    if (!st.schedule.etd) out.push("ETD not set");
-    if (!cargoComplete(st)) out.push("Cargo details incomplete");
-    if (usesContainers(sh.route) && !containerComplete(st)) out.push("Container details missing");
-    if (st.instructionsStatus !== "ready") out.push("Shipping Instructions incomplete");
-    if (!st.cha) out.push("CHA not assigned");
-    if (shippingBillIndex(st.shippingBill) < shippingBillIndex("cha-review")) out.push("Shipping Bill not prepared");
+    if (!st.forwarder) add("Forwarder not assigned", "freight");
+    if (!st.carrier) add(sh.route.mode === "air" ? "Airline not assigned" : "Carrier not assigned", "freight");
+    if (!st.bookingReference) add("Booking reference missing", "freight");
+    if (!st.schedule.etd) add("ETD not set", "freight");
+    if (!cargoComplete(st)) add("Cargo details incomplete", "cargo");
+    if (usesContainers(sh.route) && !containerComplete(st)) add("Container details missing", "containers");
+    if (st.instructionsStatus !== "ready") add("Shipping Instructions incomplete", "instructions");
+    if (!st.cha) add("CHA not assigned", "customs");
+    if (shippingBillIndex(st.shippingBill) < shippingBillIndex("cha-review")) add("Shipping Bill not prepared", "customs");
     const certs = certificates(os.documents).filter((d) => !isReady(d));
-    if (certs.length) out.push(`${certs.length} required certificate${certs.length === 1 ? "" : "s"} incomplete`);
+    if (certs.length) add(`${certs.length} required certificate${certs.length === 1 ? "" : "s"} incomplete`, "documents");
     const paper = ["commercial-invoice", "packing-list"].filter((t) => !isReady(os.documents.find((d) => d.type === t)));
-    if (paper.length) out.push(`${paper.length === 2 ? "Commercial Invoice and Packing List" : paper[0] === "commercial-invoice" ? "Commercial Invoice" : "Packing List"} not ready`);
-    if (!os.paymentReady) out.push(`Payment not confirmed on the order (${os.paymentStep.label})`);
-    if (st.customs === "query-received" || st.customs === "response-preparing") out.push("Respond to customs query (demo)");
-    if (st.customs === "examination") out.push("Customs examination pending (demo)");
-    if (st.shippingBill === "filed" || st.shippingBill === "acknowledged") out.push("Awaiting LEO (demo)");
+    if (paper.length) add(`${paper.length === 2 ? "Commercial Invoice and Packing List" : paper[0] === "commercial-invoice" ? "Commercial Invoice" : "Packing List"} not ready`, "documents");
+    if (!os.paymentReady) add(`Payment not confirmed on the order (${os.paymentStep.label})`, "order");
+    if (st.customs === "query-received" || st.customs === "response-preparing") add("Respond to customs query (demo)", "customs");
+    if (st.customs === "examination") add("Customs examination pending (demo)", "customs");
+    if (st.shippingBill === "filed" || st.shippingBill === "acknowledged") add("Awaiting LEO (demo)", "customs");
   } else if (st.status === "in-transit" && st.transportDocument !== "final-issued") {
-    out.push(`${transportDocumentName(sh.route.mode)} final not issued`);
+    add(`${transportDocumentName(sh.route.mode)} final not issued`, "transport-document");
   } else if (st.status === "arrived" || st.status === "destination-clearance") {
-    out.push("Confirm delivery");
+    add("Confirm delivery", "tracking");
   }
   return out;
 }
 
-export function nextAction(sh: ExporterShipment, st: ShipmentState, os: OrderState): string {
+export function nextAction(sh: ExporterShipment, st: ShipmentState, os: OrderState): ShipmentAction {
   const actions = shipmentActions(sh, st, os);
   if (actions.length) return actions[0];
+  const track = (text: string): ShipmentAction => ({ text, section: "tracking" });
   switch (st.status) {
     case "ready-to-ship":
-      return usesContainers(sh.route) ? "Record stuffing or gate-in" : "Record gate-in";
+      return track(usesContainers(sh.route) ? "Record stuffing or gate-in" : "Record gate-in");
     case "at-origin":
-      return st.milestones["gate-in"] ? "Record loading" : "Record gate-in";
+      return track(st.milestones["gate-in"] ? "Record loading" : "Record gate-in");
     case "loaded":
-      return "Record departure";
+      return track("Record departure");
     case "in-transit":
-      return st.schedule.eta ? `Track arrival — ETA ${shortDate(st.schedule.eta)}` : "Track arrival";
+      return track(st.schedule.eta ? `Track arrival — ETA ${shortDate(st.schedule.eta)}` : "Track arrival");
     case "delivered":
-      return "No further action — delivered";
+      return track("No further action — delivered");
     case "cancelled":
-      return "Cancelled";
+      return track("Cancelled — allocation released to the order");
     default:
-      return "Continue setup";
+      return track("Continue setup");
   }
 }
 

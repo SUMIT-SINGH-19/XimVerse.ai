@@ -48,14 +48,15 @@ export function OpportunityList({
   return (
     <>
       <div className="relative hidden overflow-x-auto xl:block">
-        <table className="w-full min-w-[64rem] text-sm">
+        {/* Columns marked 2xl wait for room beside the sidebar; their data folds into a neighbouring cell until then. */}
+        <table className="w-full text-sm">
           <thead className="border-y border-line bg-canvas/60">
             <tr>
               <th scope="col" className={th}>Opportunity</th>
               <th scope="col" className={th}>Product</th>
               <th scope="col" className={th}>Destination</th>
               <th scope="col" className={`${th} text-right!`}>Quantity</th>
-              <th scope="col" className={th}>Incoterm</th>
+              <th scope="col" className={`${th} hidden 2xl:table-cell`}>Incoterm</th>
               <th scope="col" className={th}>Deadline</th>
               <th scope="col" className={th}>Match</th>
               <th scope="col" className={th}><span className="sr-only">Action</span></th>
@@ -78,11 +79,12 @@ export function OpportunityList({
                 <td className={td}>
                   <p className="whitespace-nowrap text-ink">{shortCountry(o.delivery.destinationCountry)}</p>
                   <p className="mt-0.5 text-xs text-ink-muted">{o.buyer.region}</p>
+                  <p className="mt-0.5 text-xs text-ink-muted 2xl:hidden">{formatIncoterm(o.delivery)}</p>
                 </td>
                 <td className={`${td} whitespace-nowrap text-right tabular-nums text-ink`}>
                   {formatOpportunityQuantity(o.quantity)}
                 </td>
-                <td className={`${td} whitespace-nowrap text-ink`}>{formatIncoterm(o.delivery)}</td>
+                <td className={`${td} hidden 2xl:table-cell whitespace-nowrap text-ink`}>{formatIncoterm(o.delivery)}</td>
                 <td className={td}>
                   <p className="whitespace-nowrap text-ink">{dueDate(o)}</p>
                   <p className="mt-0.5">
@@ -106,7 +108,7 @@ export function OpportunityList({
         </table>
       </div>
 
-      <ul className="grid gap-3 border-t border-line p-4 md:grid-cols-2 xl:hidden">
+      <ul className="grid grid-cols-1 gap-3 border-t border-line p-4 md:grid-cols-2 xl:hidden">
         {opportunities.map((o) => (
           <li
             key={o.rfqId}

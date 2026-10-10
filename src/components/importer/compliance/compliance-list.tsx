@@ -77,7 +77,7 @@ export function ComplianceList() {
         ) : (
           <>
             <div className="relative mt-4 hidden overflow-x-auto xl:block">
-              <table className="w-full min-w-[60rem] text-left text-sm">
+              <table className="w-full text-left text-sm">
                 <thead>
                   <tr className="border-y border-line bg-canvas/60 text-xs text-ink-muted">
                     {["Shipment", "Supplier", "Product", "Destination", "Stage", "Required documents", "Issues", "Readiness"].map((h, i, all) => (

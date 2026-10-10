@@ -46,6 +46,9 @@ export type { TransportMode };
 const dateFormat = new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "short", timeZone: "UTC" });
 const shortDate = (iso: string) => dateFormat.format(new Date(`${iso.slice(0, 10)}T00:00:00Z`));
 
+/** "2026-10-13" → "13 Oct" (tables and compact headers). */
+export const formatShortDate = shortDate;
+
 // ---------------------------------------------------------------------------
 // Vocabularies
 // ---------------------------------------------------------------------------
@@ -753,10 +756,14 @@ export function shipmentInsights(sh: ExporterShipment, st: ShipmentState, order:
         : "Every export-clearance item is complete (demo states).",
     );
   }
-  if (os.quantities.available > 0) {
-    out.push(`${os.quantities.available.toLocaleString("en-US")} ${unit} remains unallocated on order ${order.id}.`);
-  } else if (os.quantities.allocated < os.quantities.ordered) {
-    out.push(`${(os.quantities.ordered - os.quantities.allocated).toLocaleString("en-US")} ${unit} of order ${order.id} is not yet produced or allocated.`);
+  const unallocated = os.quantities.ordered - os.quantities.allocated;
+  if (unallocated > 0) {
+    const available = os.quantities.available;
+    out.push(
+      `${unallocated.toLocaleString("en-US")} ${unit} remains unallocated on order ${order.id}${
+        available < unallocated ? ` — ${available.toLocaleString("en-US")} ${unit} of it is produced and available now` : ""
+      }.`,
+    );
   }
   const ready = os.production.actualCargoReady ?? os.production.expectedCargoReady;
   if (ready && st.schedule.etd && isPreDeparture(st.status)) {
@@ -771,6 +778,11 @@ export function shipmentInsights(sh: ExporterShipment, st: ShipmentState, order:
   if (st.status === "in-transit" && st.schedule.eta) {
     const days = daysBetween(DEMO_TODAY, st.schedule.eta);
     out.push(days >= 0 ? `ETA ${shortDate(st.schedule.eta)} — ${days} day${days === 1 ? "" : "s"} from today.` : `ETA ${shortDate(st.schedule.eta)} has passed — confirm arrival.`);
+  }
+  if (st.status === "delivered" && st.milestones.delivered) {
+    out.push(
+      `Delivered on ${shortDate(st.milestones.delivered)}. ${os.quantities.delivered.toLocaleString("en-US")} of ${os.quantities.ordered.toLocaleString("en-US")} ${unit} on order ${order.id} is delivered so far.`,
+    );
   }
   const delivery = order.terms.estimatedDelivery;
   if (delivery && st.schedule.eta && st.status !== "delivered") {

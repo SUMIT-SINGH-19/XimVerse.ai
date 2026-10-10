@@ -155,7 +155,8 @@ export function DealsList() {
         ) : (
           <>
             <div className="relative hidden overflow-x-auto xl:block">
-              <table className="w-full min-w-[58rem] text-sm">
+              {/* Columns marked 2xl wait for room beside the sidebar; their data folds into a neighbouring cell until then. */}
+              <table className="w-full text-sm">
                 <thead className="border-y border-line bg-canvas/60">
                   <tr>
                     <th scope="col" className={th}>Deal</th>
@@ -163,9 +164,9 @@ export function DealsList() {
                     <th scope="col" className={th}>Destination</th>
                     <th scope="col" className={`${th} text-right!`}>Quantity</th>
                     <th scope="col" className={`${th} text-right!`}>Contract Value</th>
-                    <th scope="col" className={th}>Incoterm</th>
+                    <th scope="col" className={`${th} hidden 2xl:table-cell`}>Incoterm</th>
                     <th scope="col" className={th}>Status / Source</th>
-                    <th scope="col" className={th}>Created</th>
+                    <th scope="col" className={`${th} hidden 2xl:table-cell`}>Created</th>
                     <th scope="col" className={th}><span className="sr-only">Action</span></th>
                   </tr>
                 </thead>
@@ -180,12 +181,12 @@ export function DealsList() {
                       <td className={`${td} whitespace-nowrap text-ink`}>{r.destination}</td>
                       <td className={`${td} whitespace-nowrap text-right tabular-nums text-ink`}>{qtyText(r.d.terms)}</td>
                       <td className={`${td} whitespace-nowrap text-right font-semibold tabular-nums text-ink`}>{valueText(r.d.terms)}</td>
-                      <td className={`${td} whitespace-nowrap text-ink`}>{r.d.terms.incoterm} {r.d.terms.namedPlace.split(",")[0]}</td>
+                      <td className={`${td} hidden 2xl:table-cell whitespace-nowrap text-ink`}>{r.d.terms.incoterm} {r.d.terms.namedPlace.split(",")[0]}</td>
                       <td className={td}>
                         <DealStatusPill status={r.status} />
                         <span className="mt-1.5 block"><SourceBadge source={r.d.source} /></span>
                       </td>
-                      <td className={`${td} whitespace-nowrap text-xs text-ink-muted`}>{formatDate(r.d.createdAt.slice(0, 10))}</td>
+                      <td className={`${td} hidden 2xl:table-cell whitespace-nowrap text-xs text-ink-muted`}>{formatDate(r.d.createdAt.slice(0, 10))}</td>
                       <td className={`${td} text-right`}>
                         <Link href={exporterHref(`deals/${r.d.id}`)} aria-label={`View deal ${r.d.id}`} className={`inline-flex items-center gap-1 whitespace-nowrap rounded-lg border border-line px-3 py-1.5 text-sm font-semibold text-teal hover:border-teal hover:bg-teal-soft ${focusRing}`}>
                           View
@@ -198,7 +199,7 @@ export function DealsList() {
               </table>
             </div>
 
-            <ul className="grid gap-3 border-t border-line p-4 md:grid-cols-2 xl:hidden">
+            <ul className="grid grid-cols-1 gap-3 border-t border-line p-4 md:grid-cols-2 xl:hidden">
               {visible.map((r) => (
                 <li key={r.d.id} className="flex flex-col rounded-xl border border-line bg-surface p-4">
                   <div className="flex items-start justify-between gap-3">

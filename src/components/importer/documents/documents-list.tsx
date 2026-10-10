@@ -184,13 +184,16 @@ function Select({ label, value, onChange, options, any }: { label: string; value
 
 function Table({ docs, supplierName }: { docs: TradeDocument[]; supplierName: (id: string) => string }) {
   const heads = ["Document", "Shipment", "Supplier", "Type", "Source", "Status", "Issue date", "Expiry", "Updated"];
+  // Hidden until 2xl so the table fits beside the sidebar on laptop screens.
+  const wideOnly = new Set(["Source","Issue date","Updated"]);
+  const col = (h: string) => (wideOnly.has(h) ? "hidden 2xl:table-cell" : h === "Expiry" ? "pr-5! 2xl:pr-3!" : "");
   return (
     <div className="relative hidden overflow-x-auto xl:block">
-      <table className="w-full min-w-[64rem] text-left text-sm">
+      <table className="w-full text-left text-sm">
         <thead>
           <tr className="border-y border-line bg-canvas/60 text-xs text-ink-muted">
             {heads.map((h, i) => (
-              <th key={h} scope="col" className={`py-2.5 font-medium ${i === 0 ? "pl-5 pr-3" : i === heads.length - 1 ? "pl-3 pr-5" : "px-3"}`}>{h}</th>
+              <th key={h} scope="col" className={`py-2.5 font-medium ${i === 0 ? "pl-5 pr-3" : i === heads.length - 1 ? "pl-3 pr-5" : "px-3"} ${col(h)}`}>{h}</th>
             ))}
           </tr>
         </thead>
@@ -212,11 +215,11 @@ function Table({ docs, supplierName }: { docs: TradeDocument[]; supplierName: (i
               <td className="whitespace-nowrap px-3 py-3.5"><ImportId id={d.shipmentId} className="text-ink-muted" /></td>
               <td className="px-3 py-3.5 text-ink">{supplierName(d.supplierId)}</td>
               <td className="px-3 py-3.5 text-ink-muted">{d.category}</td>
-              <td className="px-3 py-3.5 text-ink-muted">{DOCUMENT_SOURCE_LABEL[d.source]}</td>
+              <td className="hidden 2xl:table-cell px-3 py-3.5 text-ink-muted">{DOCUMENT_SOURCE_LABEL[d.source]}</td>
               <td className="px-3 py-3.5"><DocumentStatusBadge status={d.status} /></td>
-              <td className="whitespace-nowrap px-3 py-3.5 text-ink-muted">{d.metadata.issueDate ? formatDate(d.metadata.issueDate) : "—"}</td>
-              <td className="px-3 py-3.5"><ValidityText validity={d.validity} expiryDate={d.metadata.expiryDate} /></td>
-              <td className="whitespace-nowrap py-3.5 pl-3 pr-5 text-ink-muted">{formatDate(d.updatedAt)}</td>
+              <td className="hidden 2xl:table-cell whitespace-nowrap px-3 py-3.5 text-ink-muted">{d.metadata.issueDate ? formatDate(d.metadata.issueDate) : "—"}</td>
+              <td className="px-3 py-3.5 pr-5! 2xl:pr-3!"><ValidityText validity={d.validity} expiryDate={d.metadata.expiryDate} /></td>
+              <td className="hidden 2xl:table-cell whitespace-nowrap py-3.5 pl-3 pr-5 text-ink-muted">{formatDate(d.updatedAt)}</td>
             </tr>
           ))}
         </tbody>

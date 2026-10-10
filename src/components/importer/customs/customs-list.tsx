@@ -180,13 +180,16 @@ function Select({ label, value, onChange, options, any }: { label: string; value
 
 function Table({ cases }: { cases: CustomsCaseView[] }) {
   const heads = ["Case", "Shipment", "Supplier", "Product", "Port", "CHA", "Readiness", "Status", "ETA", "Updated"];
+  // Hidden until 2xl so the table fits beside the sidebar on laptop screens.
+  const wideOnly = new Set(["Product","Port","Updated"]);
+  const col = (h: string) => (wideOnly.has(h) ? "hidden 2xl:table-cell" : h === "ETA" ? "pr-5! 2xl:pr-3!" : "");
   return (
     <div className="relative hidden overflow-x-auto xl:block">
-      <table className="w-full min-w-[66rem] text-left text-sm">
+      <table className="w-full text-left text-sm">
         <thead>
           <tr className="border-y border-line bg-canvas/60 text-xs text-ink-muted">
             {heads.map((h, i) => (
-              <th key={h} scope="col" className={`py-2.5 font-medium ${i === 0 ? "pl-5 pr-3" : i === heads.length - 1 ? "pl-3 pr-5" : "px-3"}`}>{h}</th>
+              <th key={h} scope="col" className={`py-2.5 font-medium ${i === 0 ? "pl-5 pr-3" : i === heads.length - 1 ? "pl-3 pr-5" : "px-3"} ${col(h)}`}>{h}</th>
             ))}
           </tr>
         </thead>
@@ -203,8 +206,8 @@ function Table({ cases }: { cases: CustomsCaseView[] }) {
               </th>
               <td className="whitespace-nowrap px-3 py-3.5"><ImportId id={c.shipment.id} className="text-ink-muted" /></td>
               <td className="px-3 py-3.5 text-ink">{c.supplierName}</td>
-              <td className="px-3 py-3.5 text-ink">{c.shipment.cargo.product}</td>
-              <td className="px-3 py-3.5 text-ink-muted">{c.shipment.route.portOfDischarge}</td>
+              <td className="hidden 2xl:table-cell px-3 py-3.5 text-ink">{c.shipment.cargo.product}</td>
+              <td className="hidden 2xl:table-cell px-3 py-3.5 text-ink-muted">{c.shipment.route.portOfDischarge}</td>
               <td className="px-3 py-3.5 text-ink-muted">{c.cha?.company ?? "Not assigned"}</td>
               <td className="px-3 py-3.5"><CustomsReadinessBadge readiness={c.readiness} /></td>
               <td className="px-3 py-3.5">
@@ -213,8 +216,8 @@ function Table({ cases }: { cases: CustomsCaseView[] }) {
                   <StatusRecordTag view={c} />
                 </span>
               </td>
-              <td className="whitespace-nowrap px-3 py-3.5 text-ink-muted">{formatDate(c.eta)}</td>
-              <td className="whitespace-nowrap py-3.5 pl-3 pr-5 text-ink-muted">{formatDate(c.updatedAt)}</td>
+              <td className="whitespace-nowrap px-3 py-3.5 pr-5! text-ink-muted 2xl:pr-3!">{formatDate(c.eta)}</td>
+              <td className="hidden 2xl:table-cell whitespace-nowrap py-3.5 pl-3 pr-5 text-ink-muted">{formatDate(c.updatedAt)}</td>
             </tr>
           ))}
         </tbody>

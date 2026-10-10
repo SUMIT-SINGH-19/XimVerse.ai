@@ -153,15 +153,16 @@ export function OrdersList() {
         ) : (
           <>
             <div className="relative hidden overflow-x-auto xl:block">
-              <table className="w-full min-w-[52rem] text-sm">
+              {/* Columns marked 2xl wait for room beside the sidebar; their data folds into a neighbouring cell until then. */}
+              <table className="w-full text-sm">
                 <thead className="border-y border-line bg-canvas/60">
                   <tr>
                     <th scope="col" className={th}>Order</th>
                     <th scope="col" className={th}>Product / Destination</th>
-                    <th scope="col" className={`${th} text-right!`}>Quantity</th>
+                    <th scope="col" className={`${th} text-right! hidden 2xl:table-cell`}>Quantity</th>
                     <th scope="col" className={`${th} text-right!`}>Contract Value</th>
                     <th scope="col" className={th}>Stage / Status</th>
-                    <th scope="col" className={th}>Production</th>
+                    <th scope="col" className={`${th} hidden 2xl:table-cell`}>Production</th>
                     <th scope="col" className={th}>Pre-Shipment</th>
                     <th scope="col" className={th}><span className="sr-only">Action</span></th>
                   </tr>
@@ -177,17 +178,20 @@ export function OrdersList() {
                         <p className="font-semibold text-ink">{r.o.terms.productName}</p>
                         <p className="mt-0.5 text-xs text-ink-muted">{r.destination}</p>
                       </td>
-                      <td className={`${td} whitespace-nowrap text-right tabular-nums text-ink`}>
+                      <td className={`${td} hidden 2xl:table-cell whitespace-nowrap text-right tabular-nums text-ink`}>
                         {qtyText(r.o.terms)}
                         {r.s.quantities.allocated > 0 && <p className="mt-0.5 text-xs text-ink-muted">{r.s.quantities.allocated.toLocaleString("en-US")} allocated</p>}
                       </td>
-                      <td className={`${td} whitespace-nowrap text-right font-semibold tabular-nums text-ink`}>{valueText(r.o.terms)}</td>
+                      <td className={`${td} whitespace-nowrap text-right font-semibold tabular-nums text-ink`}>
+                        {valueText(r.o.terms)}
+                        <p className="mt-0.5 text-xs font-normal text-ink-muted 2xl:hidden">{qtyText(r.o.terms)}</p>
+                      </td>
                       <td className={td}>
                         <p className="whitespace-nowrap text-ink">{r.s.stage}</p>
                         <span className="mt-1 block"><OrderStatusPill status={r.s.status} /></span>
                         {r.actions.length > 0 && <span className="mt-1 block text-xs text-orange">{r.actions.length} to do</span>}
                       </td>
-                      <td className={`${td} w-24`}><span className="text-xs tabular-nums text-ink">{r.s.production.progress}%</span><ProgressBar value={r.s.production.progress} label="Production" /></td>
+                      <td className={`${td} hidden 2xl:table-cell w-24`}><span className="text-xs tabular-nums text-ink">{r.s.production.progress}%</span><ProgressBar value={r.s.production.progress} label="Production" /></td>
                       <td className={`${td} w-24`}><span className="text-xs tabular-nums text-ink">{r.readiness}%</span><ProgressBar value={r.readiness} label="Pre-shipment readiness" /></td>
                       <td className={`${td} text-right`}>
                         <Link href={exporterHref(`orders/${r.o.id}`)} aria-label={`View order ${r.o.id}`} className={`inline-flex items-center gap-1 whitespace-nowrap rounded-lg border border-line px-3 py-1.5 text-sm font-semibold text-teal hover:border-teal hover:bg-teal-soft ${focusRing}`}>
@@ -201,7 +205,7 @@ export function OrdersList() {
               </table>
             </div>
 
-            <ul className="grid gap-3 border-t border-line p-4 md:grid-cols-2 xl:hidden">
+            <ul className="grid grid-cols-1 gap-3 border-t border-line p-4 md:grid-cols-2 xl:hidden">
               {visible.map((r) => (
                 <li key={r.o.id} className="flex flex-col rounded-xl border border-line bg-surface p-4">
                   <div className="flex items-start justify-between gap-3">

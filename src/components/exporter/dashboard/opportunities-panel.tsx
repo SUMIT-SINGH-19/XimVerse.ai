@@ -16,14 +16,30 @@ import {
 
 const listHref = exporterHref("opportunities");
 
-function ViewLink({ rfqId, t, className = "" }: { rfqId: string; t: Translate; className?: string }) {
+function ViewLink({
+  rfqId,
+  t,
+  short = false,
+}: {
+  rfqId: string;
+  t: Translate;
+  /** "View" until 2xl, where the table has room for the full label. */
+  short?: boolean;
+}) {
   return (
     <Link
       href={exporterHref(`opportunities/${rfqId}`)}
       aria-label={t("View opportunity {id}", { id: rfqId })}
-      className={`inline-flex items-center gap-1 whitespace-nowrap rounded-lg border border-line px-3 py-1.5 text-sm font-semibold text-teal transition-colors hover:border-teal hover:bg-teal-soft ${focusRing} ${className}`}
+      className={`inline-flex items-center gap-1 whitespace-nowrap rounded-lg border border-line px-3 py-1.5 text-sm font-semibold text-teal transition-colors hover:border-teal hover:bg-teal-soft ${focusRing}`}
     >
-      {t("View Opportunity")}
+      {short ? (
+        <>
+          <span className="2xl:hidden">{t("View")}</span>
+          <span className="hidden 2xl:inline">{t("View Opportunity")}</span>
+        </>
+      ) : (
+        t("View Opportunity")
+      )}
       <ArrowRight className="size-3.5" aria-hidden />
     </Link>
   );
@@ -47,14 +63,14 @@ export async function OpportunitiesPanel({ opportunities }: { opportunities: rea
       action={{ label: "View all", href: listHref }}
       bodyClassName="pt-4 pb-2"
     >
-      {/* Wide screens: table. */}
-      <div className="relative hidden overflow-x-auto md:block">
-        <table className="w-full min-w-[60rem] text-sm">
+      {/* Wide screens: table. Destination folds into the Incoterm column until 2xl. */}
+      <div className="relative hidden overflow-x-auto xl:block">
+        <table className="w-full text-sm">
           <thead className="border-y border-line bg-canvas/60">
             <tr>
               <th scope="col" className={th}>{t("RFQ / Status")}</th>
               <th scope="col" className={th}>{t("Product")}</th>
-              <th scope="col" className={th}>{t("Destination")}</th>
+              <th scope="col" className={`${th} hidden 2xl:table-cell`}>{t("Destination")}</th>
               <th scope="col" className={th}>{t("Quantity")}</th>
               <th scope="col" className={th}>{t("Incoterm")}</th>
               <th scope="col" className={th}>{t("Required By")}</th>
@@ -75,20 +91,20 @@ export async function OpportunitiesPanel({ opportunities }: { opportunities: rea
                   <p className="font-semibold text-ink">{o.product.name}</p>
                   <p className="mt-0.5 line-clamp-1 text-xs text-ink-muted">{o.product.specification}</p>
                 </td>
-                <td className={`${td} whitespace-nowrap text-ink`}>{shortCountry(o.delivery.destinationCountry)}</td>
+                <td className={`${td} hidden whitespace-nowrap text-ink 2xl:table-cell`}>{shortCountry(o.delivery.destinationCountry)}</td>
                 <td className={`${td} whitespace-nowrap text-ink`}>{formatOpportunityQuantity(o.quantity)}</td>
-                <td className={`${td} whitespace-nowrap text-ink`}>{formatIncoterm(o.delivery)}</td>
+                <td className={`${td} min-w-36 text-ink`}>{formatIncoterm(o.delivery)}</td>
                 <td className={`${td} whitespace-nowrap text-ink`}>{formatDate(o.delivery.requiredBy)}</td>
                 <td className={td}><MatchScore score={o.match.score} /></td>
-                <td className={`${td} text-right`}><ViewLink rfqId={o.rfqId} t={t} /></td>
+                <td className={`${td} text-right`}><ViewLink rfqId={o.rfqId} t={t} short /></td>
               </tr>
             ))}
           </tbody>
         </table>
       </div>
 
-      {/* Small screens: stacked cards. */}
-      <ul className="divide-y divide-line border-t border-line md:hidden">
+      {/* Phones and tablets: stacked cards. */}
+      <ul className="divide-y divide-line border-t border-line xl:hidden">
         {opportunities.map((o) => (
           <li key={o.rfqId} className="px-5 py-4">
             <div className="flex items-start justify-between gap-3">
@@ -98,7 +114,7 @@ export async function OpportunitiesPanel({ opportunities }: { opportunities: rea
               </div>
               <OpportunityStatusPill status={o.status} />
             </div>
-            <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
+            <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2 text-sm md:grid-cols-4">
               <div>
                 <dt className="sr-only">{t("Destination")}</dt>
                 <dd className="flex items-center gap-1.5 text-ink">

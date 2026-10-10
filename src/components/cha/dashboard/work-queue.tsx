@@ -115,7 +115,8 @@ export function WorkQueue({
                 <tr className="border-y border-line bg-canvas/60 text-xs font-medium text-ink-muted">
                   <th scope="col" className="py-2.5 pl-6 pr-3 font-medium">Shipment</th>
                   <th scope="col" className="px-3 py-2.5 font-medium">Client</th>
-                  <th scope="col" className="px-3 py-2.5 font-medium">Type</th>
+                  {/* The IMP / EXP reference already shows the type; the column waits for 2xl. */}
+                  <th scope="col" className="hidden px-3 py-2.5 font-medium 2xl:table-cell">Type</th>
                   <th scope="col" className="px-3 py-2.5 font-medium">Port</th>
                   <th scope="col" className="px-3 py-2.5 font-medium">Current Stage</th>
                   <th scope="col" className="px-3 py-2.5 font-medium">Priority</th>
@@ -141,7 +142,7 @@ export function WorkQueue({
                       <span className="block truncate text-ink">{s.client}</span>
                       <span className="block truncate text-xs text-ink-faint">{s.cargo}</span>
                     </td>
-                    <td className="px-3 py-3">
+                    <td className="hidden px-3 py-3 2xl:table-cell">
                       <ShipmentTypeTag type={s.type} />
                     </td>
                     <td className="whitespace-nowrap px-3 py-3 text-ink-muted">{s.port}</td>

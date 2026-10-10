@@ -36,7 +36,8 @@ export function ProductList({
   return (
     <>
       <div className="relative hidden overflow-x-auto xl:block">
-        <table className="w-full min-w-[62rem] text-sm">
+        {/* Columns marked 2xl wait for room beside the sidebar; their data folds into a neighbouring cell until then. */}
+        <table className="w-full text-sm">
           <thead className="border-y border-line bg-canvas/60">
             <tr>
               <th scope="col" className={th}>Product</th>
@@ -44,7 +45,7 @@ export function ProductList({
               <th scope="col" className={`${th} text-right!`}>Capacity</th>
               <th scope="col" className={`${th} text-right!`}>Available</th>
               <th scope="col" className={`${th} text-right!`}>MOQ</th>
-              <th scope="col" className={th}>Lead Time</th>
+              <th scope="col" className={`${th} hidden 2xl:table-cell`}>Lead Time</th>
               <th scope="col" className={th}>Readiness</th>
               <th scope="col" className={th}>Status</th>
               <th scope="col" className={th}><span className="sr-only">Action</span></th>
@@ -72,7 +73,7 @@ export function ProductList({
                   {formatQuantity(p.supply.availableCapacity)}
                 </td>
                 <td className={`${td} whitespace-nowrap text-right tabular-nums text-ink`}>{formatQuantity(p.supply.moq)}</td>
-                <td className={`${td} whitespace-nowrap text-ink`}>{leadTime(p)}</td>
+                <td className={`${td} hidden 2xl:table-cell whitespace-nowrap text-ink`}>{leadTime(p)}</td>
                 <td className={td}><ReadinessScore score={p.readiness} /></td>
                 <td className={td}><ProductStatusPill status={p.status} /></td>
                 <td className={`${td} text-right`}>
@@ -92,7 +93,7 @@ export function ProductList({
         </table>
       </div>
 
-      <ul className="grid gap-3 border-t border-line p-4 sm:grid-cols-2 xl:hidden">
+      <ul className="grid grid-cols-1 gap-3 border-t border-line p-4 sm:grid-cols-2 xl:hidden">
         {products.map((p) => (
           <li key={p.id}>
             <button

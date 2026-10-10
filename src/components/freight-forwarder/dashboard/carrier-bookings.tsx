@@ -91,6 +91,8 @@ export function CarrierBookings({
         columns={columns(asOf, timeZone)}
         rowKey={(b) => b.id}
         caption="Carrier bookings"
+        // Shares its row with a 22rem column from xl, so the table waits for 2xl.
+        wideFrom="2xl"
         cardTitle={(b) => (
           <span className="flex items-start justify-between gap-3">
             <span className="min-w-0">

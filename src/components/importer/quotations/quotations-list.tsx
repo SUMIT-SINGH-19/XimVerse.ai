@@ -320,17 +320,18 @@ function SelectBox({ quote, checked, incompatible, onSelect }: RowProps) {
 
 function QuotationTable({ rows }: { rows: RowProps[] }) {
   const heads = ["Quotation", "Requirement", "Supplier", "Quoted Price", "Incoterm", "Lead Time", "Payment Terms", "Status", "Received"];
+  // Hidden until 2xl so the table fits beside the sidebar on laptop screens.
+  const wideOnly = new Set(["Payment Terms", "Received"]);
   return (
-    // Scrolls on its own between xl and ~1360px rather than widening the page.
     <div className="relative hidden overflow-x-auto xl:block">
-      <table className="w-full min-w-[60rem] text-left text-sm">
+      <table className="w-full text-left text-sm">
         <thead>
           <tr className="border-y border-line bg-canvas/60 text-xs text-ink-muted">
             <th scope="col" className="w-10 py-2.5 pl-5 pr-1 font-medium">
               <span className="sr-only">Compare</span>
             </th>
             {heads.map((h) => (
-              <th key={h} scope="col" className={`px-3 py-2.5 font-medium ${h === "Received" ? "pr-2" : ""}`}>
+              <th key={h} scope="col" className={`px-3 py-2.5 font-medium ${h === "Received" ? "pr-2" : ""} ${wideOnly.has(h) ? "hidden 2xl:table-cell" : ""}`}>
                 {h}
               </th>
             ))}
@@ -378,11 +379,11 @@ function QuotationTable({ rows }: { rows: RowProps[] }) {
                   <span className="block text-xs text-ink-faint">{quote.price.namedPlace}</span>
                 </td>
                 <td className="whitespace-nowrap px-3 py-3.5 text-ink">{quote.delivery.leadTimeDays} days</td>
-                <td className="px-3 py-3.5 text-ink-muted">{quote.commercial.paymentSummary}</td>
+                <td className="hidden 2xl:table-cell px-3 py-3.5 text-ink-muted">{quote.commercial.paymentSummary}</td>
                 <td className="px-3 py-3.5">
                   <QuotationStatusBadge status={status} />
                 </td>
-                <td className="whitespace-nowrap py-3.5 pl-3 pr-2 text-ink-muted">{formatTimeAgo(quote.receivedAt, MOCK_NOW)}</td>
+                <td className="hidden 2xl:table-cell whitespace-nowrap py-3.5 pl-3 pr-2 text-ink-muted">{formatTimeAgo(quote.receivedAt, MOCK_NOW)}</td>
                 <td className="py-3.5 pr-5">
                   <ShortlistToggle
                     label={`${quote.id} from ${s.name}`}

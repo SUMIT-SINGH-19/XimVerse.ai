@@ -206,13 +206,16 @@ function Route({ sh }: { sh: Shipment }) {
 
 function Table({ rows }: { rows: Row[] }) {
   const heads = ["Shipment / Order", "Supplier", "Product", "Route", "Mode", "ETD", "ETA", "Stage", "Status", "Next action"];
+  // Hidden until 2xl so the table fits beside the sidebar on laptop screens.
+  const wideOnly = new Set(["Mode","ETD"]);
+  const col = (h: string) => (wideOnly.has(h) ? "hidden 2xl:table-cell" : "");
   return (
     <div className="relative hidden overflow-x-auto xl:block">
-      <table className="w-full min-w-[64rem] text-left text-sm">
+      <table className="w-full text-left text-sm">
         <thead>
           <tr className="border-y border-line bg-canvas/60 text-xs text-ink-muted">
             {heads.map((h, i) => (
-              <th key={h} scope="col" className={`py-2.5 font-medium ${i === 0 ? "pl-5 pr-3" : i === heads.length - 1 ? "pl-3 pr-5" : "px-3"}`}>{h}</th>
+              <th key={h} scope="col" className={`py-2.5 font-medium ${i === 0 ? "pl-5 pr-3" : i === heads.length - 1 ? "pl-3 pr-5" : "px-3"} ${col(h)}`}>{h}</th>
             ))}
           </tr>
         </thead>
@@ -231,8 +234,8 @@ function Table({ rows }: { rows: Row[] }) {
               <td className="px-3 py-3.5 font-medium text-ink">{supplier}</td>
               <td className="px-3 py-3.5 text-ink">{sh.cargo.product}</td>
               <td className="px-3 py-3.5 text-ink-muted"><Route sh={sh} /></td>
-              <td className="px-3 py-3.5 text-ink-muted">{modeLabel(sh.route.mode)}</td>
-              <td className="whitespace-nowrap px-3 py-3.5 text-ink">{formatDate(st.schedule.etd)}</td>
+              <td className="hidden 2xl:table-cell px-3 py-3.5 text-ink-muted">{modeLabel(sh.route.mode)}</td>
+              <td className="hidden 2xl:table-cell whitespace-nowrap px-3 py-3.5 text-ink">{formatDate(st.schedule.etd)}</td>
               <td className="whitespace-nowrap px-3 py-3.5 text-ink">{formatDate(st.schedule.eta)}</td>
               <td className="px-3 py-3.5 text-ink-muted">{stageLabel(st.stage)}</td>
               <td className="px-3 py-3.5"><ShipmentStatusBadge status={st.status} /></td>

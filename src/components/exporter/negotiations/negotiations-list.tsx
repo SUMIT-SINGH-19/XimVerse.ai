@@ -185,17 +185,18 @@ export function NegotiationsList() {
         ) : (
           <>
             <div className="relative hidden overflow-x-auto xl:block">
-              <table className="w-full min-w-[60rem] text-sm">
+              {/* Columns marked 2xl wait for room beside the sidebar; their data folds into a neighbouring cell until then. */}
+              <table className="w-full text-sm">
                 <thead className="border-y border-line bg-canvas/60">
                   <tr>
                     <th scope="col" className={th}>Negotiation</th>
-                    <th scope="col" className={th}>Quotation / RFQ</th>
+                    <th scope="col" className={`${th} hidden 2xl:table-cell`}>Quotation / RFQ</th>
                     <th scope="col" className={th}>Product</th>
                     <th scope="col" className={th}>Destination</th>
                     <th scope="col" className={`${th} text-right!`}>Your Offer</th>
                     <th scope="col" className={`${th} text-right!`}>Buyer Latest</th>
                     <th scope="col" className={th}>Status</th>
-                    <th scope="col" className={th}>Last Activity</th>
+                    <th scope="col" className={`${th} hidden 2xl:table-cell`}>Last Activity</th>
                     <th scope="col" className={th}><span className="sr-only">Action</span></th>
                   </tr>
                 </thead>
@@ -203,7 +204,7 @@ export function NegotiationsList() {
                   {visible.map((r) => (
                     <tr key={r.n.id} className="transition-colors hover:bg-canvas/50">
                       <td className={`${td} whitespace-nowrap font-mono text-xs font-semibold text-ink`}>{r.n.id}</td>
-                      <td className={td}>
+                      <td className={`${td} hidden 2xl:table-cell`}>
                         <p className="whitespace-nowrap font-mono text-xs text-ink">{r.n.quotationId}</p>
                         <p className="mt-0.5 whitespace-nowrap font-mono text-xs text-ink-muted">{r.n.requirementId}</p>
                       </td>
@@ -214,7 +215,7 @@ export function NegotiationsList() {
                         {r.buyer ? formatOfferPrice(r.buyer) : "—"}
                       </td>
                       <td className={td}><NegotiationStatusPill status={r.status} /></td>
-                      <td className={`${td} whitespace-nowrap text-xs text-ink-muted`}>{formatDateTime(r.lastAt)}</td>
+                      <td className={`${td} hidden 2xl:table-cell whitespace-nowrap text-xs text-ink-muted`}>{formatDateTime(r.lastAt)}</td>
                       <td className={`${td} text-right`}>
                         <Link href={exporterHref(`negotiations/${r.n.id}`)} aria-label={`Open negotiation ${r.n.id}`} className={`inline-flex items-center gap-1 whitespace-nowrap rounded-lg border border-line px-3 py-1.5 text-sm font-semibold text-teal hover:border-teal hover:bg-teal-soft ${focusRing}`}>
                           Open
@@ -227,7 +228,7 @@ export function NegotiationsList() {
               </table>
             </div>
 
-            <ul className="grid gap-3 border-t border-line p-4 md:grid-cols-2 xl:hidden">
+            <ul className="grid grid-cols-1 gap-3 border-t border-line p-4 md:grid-cols-2 xl:hidden">
               {visible.map((r) => (
                 <li key={r.n.id} className="flex flex-col rounded-xl border border-line bg-surface p-4">
                   <div className="flex items-start justify-between gap-3">

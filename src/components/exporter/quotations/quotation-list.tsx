@@ -61,7 +61,8 @@ export function QuotationList({ rows }: { rows: readonly PipelineRow[] }) {
   return (
     <>
       <div className="relative hidden overflow-x-auto xl:block">
-        <table className="w-full min-w-[60rem] text-sm">
+        {/* Columns marked 2xl wait for room beside the sidebar; their data folds into a neighbouring cell until then. */}
+        <table className="w-full text-sm">
           <thead className="border-y border-line bg-canvas/60">
             <tr>
               <th scope="col" className={th}>Quotation</th>
@@ -69,7 +70,7 @@ export function QuotationList({ rows }: { rows: readonly PipelineRow[] }) {
               <th scope="col" className={th}>Destination</th>
               <th scope="col" className={`${th} text-right!`}>Qty · Unit Price</th>
               <th scope="col" className={`${th} text-right!`}>Total</th>
-              <th scope="col" className={th}>Incoterm</th>
+              <th scope="col" className={`${th} hidden 2xl:table-cell`}>Incoterm</th>
               <th scope="col" className={th}>Validity</th>
               <th scope="col" className={th}>Status</th>
               <th scope="col" className={th}><span className="sr-only">Action</span></th>
@@ -85,14 +86,15 @@ export function QuotationList({ rows }: { rows: readonly PipelineRow[] }) {
                 </td>
                 <td className={td}>
                   <p className="whitespace-nowrap text-ink">{r.destinationCountry ?? "—"}</p>
-                  <p className="mt-0.5 text-xs text-ink-muted">{r.destinationLocation?.split(",")[0]}</p>
+                  <p className="mt-0.5 hidden text-xs text-ink-muted 2xl:block">{r.destinationLocation?.split(",")[0]}</p>
+                  <p className="mt-0.5 text-xs text-ink-muted 2xl:hidden">{r.incoterm?.split(",")[0]}</p>
                 </td>
                 <td className={`${td} whitespace-nowrap text-right tabular-nums`}>
                   <p className="text-ink">{qty(r)}</p>
                   <p className="mt-0.5 text-xs text-ink-muted">{unitPrice(r)}</p>
                 </td>
                 <td className={`${td} whitespace-nowrap text-right font-semibold tabular-nums text-ink`}>{total(r)}</td>
-                <td className={`${td} whitespace-nowrap text-ink`} title={r.incoterm}>{r.incoterm?.split(",")[0] || "—"}</td>
+                <td className={`${td} hidden 2xl:table-cell whitespace-nowrap text-ink`} title={r.incoterm}>{r.incoterm?.split(",")[0] || "—"}</td>
                 <td className={td}><ValidityText validUntil={r.validUntil} status={r.status} /></td>
                 <td className={td}><QuotationStatusPill status={r.status} /></td>
                 <td className={`${td} text-right`}><RowAction r={r} /></td>
@@ -102,7 +104,7 @@ export function QuotationList({ rows }: { rows: readonly PipelineRow[] }) {
         </table>
       </div>
 
-      <ul className="grid gap-3 border-t border-line p-4 md:grid-cols-2 xl:hidden">
+      <ul className="grid grid-cols-1 gap-3 border-t border-line p-4 md:grid-cols-2 xl:hidden">
         {rows.map((r) => (
           <li key={r.key} className="flex flex-col rounded-xl border border-line bg-surface p-4">
             <div className="flex items-start justify-between gap-3">

@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, CircleAlert, Lock, Ship } from "lucide-react";
@@ -37,7 +37,7 @@ function SetupForm({ order, shipments }: { order: ExporterOrder; shipments: read
   const opp = findOpportunity(order.requirementId);
   // One setup form → one shipment: the key is the order plus how many shipments it had when the form opened.
   const [setupKey] = useState(() => `${order.id}#${shipmentsForOrder(order.id, shipments).length}`);
-  const defaults = useMemo(() => setupDefaults(order, eligibility.available), [order, eligibility.available]);
+  const defaults = setupDefaults(order, eligibility.available);
   const [quantity, setQuantity] = useState(String(eligibility.available || ""));
   const [mode, setMode] = useState<TransportMode>(defaults.route.mode);
   const [shipmentType, setShipmentType] = useState<ShipmentType>("FCL");

@@ -177,6 +177,7 @@ export interface Column<T> {
 const BREAKPOINT = {
   lg: { table: "hidden lg:block", cards: "lg:hidden" },
   xl: { table: "hidden xl:block", cards: "xl:hidden" },
+  "2xl": { table: "hidden 2xl:block", cards: "2xl:hidden" },
 } as const;
 
 /**

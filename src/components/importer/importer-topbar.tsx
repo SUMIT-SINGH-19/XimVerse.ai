@@ -22,7 +22,7 @@ export function ImporterTopbar({
 
   return (
     <header className="sticky top-0 z-30 border-b print:hidden border-line bg-surface/90 backdrop-blur supports-backdrop-filter:bg-surface/80">
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-3 px-4 py-3 sm:px-6 lg:flex-nowrap lg:px-8">
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-3 px-4 py-3 sm:px-6 lg:px-8 xl:flex-nowrap">
         <button
           ref={menuButtonRef}
           type="button"
@@ -33,7 +33,7 @@ export function ImporterTopbar({
           <Menu className="size-5" aria-hidden />
         </button>
 
-        <div className="min-w-0 flex-1 lg:flex-none lg:basis-56">
+        <div className="min-w-0 flex-1 xl:flex-none xl:basis-56">
           {page?.group && (
             <p className="text-[0.6875rem] font-semibold uppercase tracking-[0.14em] text-ink-faint">
               {t(page.group)}
@@ -47,7 +47,7 @@ export function ImporterTopbar({
         <form
           role="search"
           onSubmit={(e) => e.preventDefault()}
-          className="order-last w-full md:order-0 md:w-auto md:flex-1 lg:max-w-xl"
+          className="order-last w-full xl:order-0 xl:w-auto xl:flex-1 xl:max-w-xl"
         >
           <label htmlFor="importer-search" className="sr-only">
             {t("Search the workspace")}

@@ -194,13 +194,16 @@ function Select({ label, value, onChange, options, any }: { label: string; value
 
 function Table({ rows }: { rows: Row[] }) {
   const heads = ["Order / PO", "Supplier", "Product", "Quantity", "Order value", "Incoterm", "Required by", "Status", "Updated"];
+  // Hidden until 2xl so the table fits beside the sidebar on laptop screens.
+  const wideOnly = new Set(["Incoterm","Updated"]);
+  const col = (h: string) => (wideOnly.has(h) ? "hidden 2xl:table-cell" : h === "Status" ? "pr-5! 2xl:pr-3!" : "");
   return (
     <div className="relative hidden overflow-x-auto xl:block">
-      <table className="w-full min-w-[58rem] text-left text-sm">
+      <table className="w-full text-left text-sm">
         <thead>
           <tr className="border-y border-line bg-canvas/60 text-xs text-ink-muted">
             {heads.map((h, i) => (
-              <th key={h} scope="col" className={`py-2.5 font-medium ${i === 0 ? "pl-5 pr-3" : i === heads.length - 1 ? "pl-3 pr-5" : "px-3"}`}>{h}</th>
+              <th key={h} scope="col" className={`py-2.5 font-medium ${i === 0 ? "pl-5 pr-3" : i === heads.length - 1 ? "pl-3 pr-5" : "px-3"} ${col(h)}`}>{h}</th>
             ))}
           </tr>
         </thead>
@@ -223,10 +226,10 @@ function Table({ rows }: { rows: Row[] }) {
               </td>
               <td className="whitespace-nowrap px-3 py-3.5 text-ink">{formatOrderQuantity(o.terms)}</td>
               <td className="whitespace-nowrap px-3 py-3.5 font-semibold tabular-nums text-ink">{formatOrderValue(o.terms)}</td>
-              <td className="px-3 py-3.5 text-ink-muted">{o.terms.incoterm} {o.terms.namedPlace}</td>
+              <td className="hidden 2xl:table-cell px-3 py-3.5 text-ink-muted">{o.terms.incoterm} {o.terms.namedPlace}</td>
               <td className="whitespace-nowrap px-3 py-3.5 text-ink">{formatDate(o.purchaseOrder.requiredBy)}</td>
-              <td className="px-3 py-3.5"><OrderStatusBadge status={status} /></td>
-              <td className="whitespace-nowrap py-3.5 pl-3 pr-5 text-ink-muted">{formatDate(updated)}</td>
+              <td className="px-3 py-3.5 pr-5! 2xl:pr-3!"><OrderStatusBadge status={status} /></td>
+              <td className="hidden 2xl:table-cell whitespace-nowrap py-3.5 pl-3 pr-5 text-ink-muted">{formatDate(updated)}</td>
             </tr>
           ))}
         </tbody>

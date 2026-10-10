@@ -85,7 +85,7 @@ export function QuotationList({ rows }: { rows: readonly PipelineRow[] }) {
                   <p className="mt-0.5 font-mono text-xs text-ink-muted">{r.rfqId}</p>
                 </td>
                 <td className={td}>
-                  <p className="whitespace-nowrap text-ink">{r.destinationCountry ?? "—"}</p>
+                  <p className="text-ink">{r.destinationCountry ?? "—"}</p>
                   <p className="mt-0.5 hidden text-xs text-ink-muted 2xl:block">{r.destinationLocation?.split(",")[0]}</p>
                   <p className="mt-0.5 text-xs text-ink-muted 2xl:hidden">{r.incoterm?.split(",")[0]}</p>
                 </td>

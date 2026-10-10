@@ -3,6 +3,7 @@
 import { useSyncExternalStore } from "react";
 import Link from "next/link";
 import { Plus } from "lucide-react";
+import { useT } from "@/i18n/client";
 import { importerHref } from "@/lib/importer-nav";
 import { primaryButton } from "../styles";
 
@@ -25,20 +26,21 @@ function useGreeting(): string {
 }
 
 export function DashboardGreeting() {
-  const greeting = useGreeting();
+  const t = useT();
+  const greeting = t(useGreeting());
 
   return (
     <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
       <div>
         <h1 className="text-3xl font-bold tracking-[-0.03em] text-ink sm:text-4xl">{greeting}</h1>
         <p className="mt-2 text-base text-ink-muted">
-          Here&apos;s what needs your attention across your imports.
+          {t("Here's what needs your attention across your imports.")}
         </p>
       </div>
 
       <Link href={importerHref("rfqs/new")} className={`${primaryButton} self-start sm:self-auto`}>
         <Plus className="size-4" aria-hidden strokeWidth={2.5} />
-        New Import Requirement
+        {t("New Import Requirement")}
       </Link>
     </div>
   );

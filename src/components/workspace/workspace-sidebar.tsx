@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Sparkles } from "lucide-react";
 import { Logo } from "@/components/logo";
+import { useT } from "@/i18n/client";
 import type { WorkspaceConfig } from "@/lib/workspace-nav";
 import { WorkspaceNavItem } from "./workspace-nav-item";
 import { AssistantButton } from "./assistant-button";
@@ -17,6 +18,7 @@ export function WorkspaceSidebar({
   config: WorkspaceConfig;
   onNavigate?: () => void;
 }) {
+  const t = useT();
   const { base, assistant } = config;
 
   return (
@@ -27,16 +29,16 @@ export function WorkspaceSidebar({
           <Logo className="h-8! sm:h-8!" />
         </Link>
         <p className="mt-3 px-1 text-xs font-medium uppercase tracking-[0.14em] text-ink-faint">
-          {config.roleLabel} workspace
+          {t("{role} workspace", { role: t(config.roleLabel) })}
         </p>
       </div>
 
-      <nav aria-label={config.roleLabel} className="flex-1 overflow-y-auto px-3 pb-4">
+      <nav aria-label={t(config.roleLabel)} className="flex-1 overflow-y-auto px-3 pb-4">
         {config.nav.map((group, i) => (
           <div key={group.label ?? i} className={i > 0 ? "mt-6" : undefined}>
             {group.label && (
               <h2 className="mb-1.5 px-3 text-[0.6875rem] font-semibold uppercase tracking-[0.14em] text-ink-faint">
-                {group.label}
+                {t(group.label)}
               </h2>
             )}
             <ul className="space-y-0.5">
@@ -62,7 +64,7 @@ export function WorkspaceSidebar({
         </div>
       )}
 
-      <nav aria-label={config.footerLabel} className="border-t border-line px-3 py-3">
+      <nav aria-label={t(config.footerLabel)} className="border-t border-line px-3 py-3">
         <ul className="space-y-0.5">
           {config.footerNav.map((item) => (
             <li key={item.slug}>

@@ -14,7 +14,6 @@ import {
   actionsRequired,
   isActiveOrder,
   ORDER_STATUS_LABEL,
-  orderState,
   orderValueMinor,
   readinessScore,
   type ExporterOrder,
@@ -22,6 +21,8 @@ import {
   type OrderStatus,
 } from "@/lib/exporter-orders";
 import { useExporterOrders } from "@/lib/exporter-order-store";
+import { useExporterShipments } from "@/lib/exporter-shipment-store";
+import { orderStateWithShipments } from "@/lib/exporter-shipments";
 import type { Currency } from "@/lib/import-requirements";
 import { OrderStatusPill, ProgressBar } from "./order-ui";
 
@@ -41,14 +42,15 @@ const td = "px-2.5 py-3.5 align-top first:pl-5 last:pr-4";
 /** Seeded orders plus orders created in this browser. */
 export function OrdersList() {
   const orders = useExporterOrders();
+  const shipments = useExporterShipments();
   const rows = useMemo<Row[]>(
     () =>
       orders.map((o) => {
-        const s = orderState(o);
+        const s = orderStateWithShipments(o, shipments);
         const opp = findOpportunity(o.requirementId);
         return { o, s, readiness: readinessScore(o, s), actions: actionsRequired(o, s), destination: opp ? shortCountry(opp.delivery.destinationCountry) : "—" };
       }),
-    [orders],
+    [orders, shipments],
   );
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState<OrderStatus | "">("");
@@ -175,7 +177,10 @@ export function OrdersList() {
                         <p className="font-semibold text-ink">{r.o.terms.productName}</p>
                         <p className="mt-0.5 text-xs text-ink-muted">{r.destination}</p>
                       </td>
-                      <td className={`${td} whitespace-nowrap text-right tabular-nums text-ink`}>{qtyText(r.o.terms)}</td>
+                      <td className={`${td} whitespace-nowrap text-right tabular-nums text-ink`}>
+                        {qtyText(r.o.terms)}
+                        {r.s.quantities.allocated > 0 && <p className="mt-0.5 text-xs text-ink-muted">{r.s.quantities.allocated.toLocaleString("en-US")} allocated</p>}
+                      </td>
                       <td className={`${td} whitespace-nowrap text-right font-semibold tabular-nums text-ink`}>{valueText(r.o.terms)}</td>
                       <td className={td}>
                         <p className="whitespace-nowrap text-ink">{r.s.stage}</p>

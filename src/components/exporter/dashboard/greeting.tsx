@@ -1,6 +1,7 @@
 "use client";
 
 import { useSyncExternalStore } from "react";
+import { useT } from "@/i18n/client";
 
 function greetingForNow(): string {
   const hour = new Date().getHours();
@@ -16,13 +17,14 @@ const noSubscription = () => () => {};
  * so the server renders a neutral greeting and the browser fills in the real one.
  */
 export function Greeting() {
-  const greeting = useSyncExternalStore(noSubscription, greetingForNow, () => "Welcome back");
+  const t = useT();
+  const greeting = t(useSyncExternalStore(noSubscription, greetingForNow, () => "Welcome back"));
 
   return (
     <p className="text-sm text-ink-muted">
       <span className="font-semibold text-ink">{greeting}</span>
       <span aria-hidden className="mx-2 text-ink-faint">·</span>
-      Here&apos;s what&apos;s happening with your export business today.
+      {t("Here's what's happening with your export business today.")}
     </p>
   );
 }

@@ -1,8 +1,9 @@
 import { ArrowRight } from "lucide-react";
 import type { ImportStatus, TradeRoute } from "@/lib/importer-dashboard-data";
 import { IMPORT_STATUS_LABEL } from "@/lib/importer-dashboard-data";
+import { T } from "@/i18n/client";
 
-/** A titled section of the dashboard. */
+/** A titled section of the dashboard. Translates its title and description. */
 export function Panel({
   id,
   title,
@@ -23,9 +24,13 @@ export function Panel({
       <div className="flex items-start justify-between gap-4 px-5 pt-5 sm:px-6">
         <div className="min-w-0">
           <h2 id={id} className="text-base font-semibold tracking-tight text-ink">
-            {title}
+            <T>{title}</T>
           </h2>
-          {description && <p className="mt-0.5 text-sm text-ink-muted">{description}</p>}
+          {description && (
+            <p className="mt-0.5 text-sm text-ink-muted">
+              <T>{description}</T>
+            </p>
+          )}
         </div>
         {action}
       </div>
@@ -47,7 +52,7 @@ export function StatusBadge({ status }: { status: ImportStatus }) {
       className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-full px-2.5 py-0.5 text-xs font-medium ${STATUS_STYLE[status]}`}
     >
       <span aria-hidden className="size-1.5 rounded-full bg-current" />
-      {IMPORT_STATUS_LABEL[status]}
+      <T>{IMPORT_STATUS_LABEL[status]}</T>
     </span>
   );
 }
@@ -58,7 +63,9 @@ export function RouteLabel({ route, className = "" }: { route: TradeRoute; class
     <span className={`inline-flex items-center gap-1.5 ${className}`}>
       <span>{route.origin}</span>
       <ArrowRight aria-hidden className="size-3.5 shrink-0 text-ink-faint" />
-      <span className="sr-only">to</span>
+      <span className="sr-only">
+        <T>to</T>
+      </span>
       <span>{route.destination}</span>
     </span>
   );

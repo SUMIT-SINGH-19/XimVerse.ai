@@ -1,4 +1,6 @@
-/** Heading block at the top of an importer page. */
+import { T } from "@/i18n/client";
+
+/** Heading block at the top of an importer page. Translates the text it is given. */
 export function ImporterPageHeader({
   title,
   description,
@@ -11,10 +13,14 @@ export function ImporterPageHeader({
   return (
     <div>
       {eyebrow && (
-        <p className="text-xs font-semibold uppercase tracking-[0.14em] text-orange">{eyebrow}</p>
+        <p className="text-xs font-semibold uppercase tracking-[0.14em] text-orange"><T>{eyebrow}</T></p>
       )}
-      <h1 className="mt-1 text-3xl font-bold tracking-[-0.03em] text-ink sm:text-4xl">{title}</h1>
-      {description && <p className="mt-2 max-w-2xl text-base text-ink-muted">{description}</p>}
+      <h1 className="mt-1 text-3xl font-bold tracking-[-0.03em] text-ink sm:text-4xl"><T>{title}</T></h1>
+      {description && (
+        <p className="mt-2 max-w-2xl text-base text-ink-muted">
+          <T>{description}</T>
+        </p>
+      )}
     </div>
   );
 }
@@ -27,10 +33,10 @@ export function ComingSoon({ title, group }: { title: string; group?: string }) 
       <div className="mt-8 rounded-2xl border border-dashed border-line bg-surface px-6 py-16 text-center">
         <span className="inline-flex items-center gap-2 rounded-full bg-orange-soft px-3 py-1 text-sm font-medium text-orange">
           <span aria-hidden className="size-1.5 rounded-full bg-orange" />
-          Coming soon
+          <T>Coming soon</T>
         </span>
         <p className="mx-auto mt-3 max-w-md text-sm text-ink-muted">
-          This part of the importer workspace is on the way.
+          <T vars={{ workspace: "importer" }}>{"This part of the {workspace} workspace is on the way."}</T>
         </p>
       </div>
     </>

@@ -1,3 +1,5 @@
+import { T } from "@/i18n/client";
+
 export type PillTone = "brand" | "accent" | "solid" | "neutral" | "muted";
 
 const TONES: Record<PillTone, string> = {
@@ -11,13 +13,13 @@ const TONES: Record<PillTone, string> = {
   muted: "bg-canvas text-ink-faint",
 };
 
-/** Small rounded status label. Callers map their own statuses to a tone. */
+/** Small rounded status label. Callers map their own statuses to a tone; plain-text labels are translated. */
 export function StatusPill({ tone, children }: { tone: PillTone; children: React.ReactNode }) {
   return (
     <span
       className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-full px-2.5 py-0.5 text-xs font-medium ${TONES[tone]}`}
     >
-      {children}
+      {typeof children === "string" ? <T>{children}</T> : children}
     </span>
   );
 }

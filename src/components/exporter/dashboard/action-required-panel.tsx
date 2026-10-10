@@ -2,10 +2,13 @@ import Link from "next/link";
 import { ChevronRight } from "lucide-react";
 import { Panel } from "@/components/workspace/panel";
 import { focusRing } from "@/components/workspace/styles";
+import { getT } from "@/i18n/server";
 import { exporterHref } from "@/lib/exporter-nav";
 import type { ActionItem } from "@/lib/exporter-dashboard";
 
-export function ActionRequiredPanel({ items }: { items: readonly ActionItem[] }) {
+export async function ActionRequiredPanel({ items }: { items: readonly ActionItem[] }) {
+  const t = await getT();
+
   return (
     <Panel title="Action Required" bodyClassName="px-3 pb-3 pt-3">
       <ul className="space-y-1">
@@ -22,7 +25,7 @@ export function ActionRequiredPanel({ items }: { items: readonly ActionItem[] })
               >
                 {item.count}
               </span>
-              <span className="min-w-0 flex-1 text-sm text-ink">{item.label}</span>
+              <span className="min-w-0 flex-1 text-sm text-ink">{t(item.label)}</span>
               <ChevronRight className="size-4 shrink-0 text-ink-faint group-hover:text-teal" aria-hidden />
             </Link>
           </li>

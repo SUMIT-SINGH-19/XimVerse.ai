@@ -81,15 +81,19 @@ export const SHIPPING_BILL_STEPS = [
 ] as const;
 export type ShippingBillStatus = (typeof SHIPPING_BILL_STEPS)[number]["id"];
 
-/** Customs query state after filing (demo). */
-export type CustomsQueryStatus = "no-query" | "query-received" | "response-preparing" | "cleared";
+/** Customs state after filing (demo). LEO sets it to cleared. */
+export type CustomsQueryStatus = "no-query" | "query-received" | "response-preparing" | "examination" | "cleared";
 
 export const CUSTOMS_QUERY_LABEL: Record<CustomsQueryStatus, string> = {
   "no-query": "No Query",
   "query-received": "Query Received",
   "response-preparing": "Response Preparing",
-  cleared: "Query Resolved",
+  examination: "Examination Ordered",
+  cleared: "Cleared",
 };
+
+/** Customs states that hold back LEO. */
+export const OPEN_CUSTOMS_STATES: readonly CustomsQueryStatus[] = ["query-received", "response-preparing", "examination"];
 
 /** BL / AWB lifecycle (demo — nothing is issued by a carrier here). */
 export const TRANSPORT_DOCUMENT_STEPS = [
@@ -120,6 +124,7 @@ export const PHYSICAL_MILESTONES = [
   { id: "loaded", label: "Loaded" },
   { id: "departed", label: "Departed" },
   { id: "arrived", label: "Arrived" },
+  { id: "clearance", label: "Destination Clearance" },
   { id: "delivered", label: "Delivered" },
 ] as const;
 export type PhysicalMilestone = (typeof PHYSICAL_MILESTONES)[number]["id"];
@@ -154,6 +159,14 @@ export interface ContainerDetails {
   numbers?: string;
   /** Comma-separated seal numbers. */
   seals?: string;
+}
+
+/** Vessel or flight, and the forwarder's / carrier's tracking reference (demo — no tracking API). */
+export interface VesselDetails {
+  /** Vessel name, or flight number for air. */
+  name: string;
+  voyage: string;
+  trackingReference: string;
 }
 
 /** Shipment-specific shipping instructions. Consignee / notify come from Ximverse. */
@@ -197,7 +210,7 @@ export interface ShipmentEvent {
   schedule?: { etd?: string; eta?: string };
   cargo?: Partial<CargoDetails>;
   container?: Partial<ContainerDetails>;
-  vessel?: { name?: string; voyage?: string };
+  vessel?: Partial<VesselDetails>;
   instructions?: Partial<ShippingInstructions>;
   shippingBill?: ShippingBillStatus;
   customs?: CustomsQueryStatus;
@@ -240,6 +253,7 @@ export type ShipmentStatus =
   | "loaded"
   | "in-transit"
   | "arrived"
+  | "destination-clearance"
   | "delivered"
   | "cancelled";
 
@@ -251,7 +265,8 @@ export const SHIPMENT_STATUS_LABEL: Record<ShipmentStatus, string> = {
   "at-origin": "At Origin",
   loaded: "Loaded",
   "in-transit": "In Transit",
-  arrived: "Arrived · Destination Clearance",
+  arrived: "Arrived",
+  "destination-clearance": "Destination Clearance",
   delivered: "Delivered",
   cancelled: "Cancelled",
 };
@@ -266,6 +281,7 @@ export const IMPORTER_SHIPMENT_STATUS_EQUIVALENT: Record<ShipmentStatus, string>
   loaded: "at-origin",
   "in-transit": "in-transit",
   arrived: "arrived",
+  "destination-clearance": "customs",
   delivered: "delivered",
   cancelled: "preparing",
 };
@@ -290,7 +306,7 @@ export interface ShipmentState {
   schedule: { etd?: string; eta?: string; atd?: string; ata?: string };
   cargo: CargoDetails;
   container: ContainerDetails;
-  vessel: { name?: string; voyage?: string };
+  vessel: Partial<VesselDetails>;
   instructions: ShippingInstructions;
   instructionsStatus: InstructionsStatus;
   shippingBill: ShippingBillStatus;
@@ -383,6 +399,7 @@ export function shipmentState(sh: ExporterShipment): ShipmentState {
         if (e.shippingBill) {
           st.shippingBill = e.shippingBill;
           st.shippingBillAt[e.shippingBill] ??= e.at;
+          if (e.shippingBill === "leo-received") st.customs = "cleared";
         }
         break;
       case "customs-updated":
@@ -402,30 +419,82 @@ export function shipmentState(sh: ExporterShipment): ShipmentState {
   st.schedule.atd = st.milestones.departed?.slice(0, 10);
   st.schedule.ata = st.milestones.arrived?.slice(0, 10);
 
+  // Physical milestones decide once they happen. Before that, the status is
+  // the earliest phase not yet complete: cargo → freight → export clearance.
   const m = st.milestones;
-  const leo = st.shippingBill === "leo-received";
-  const freightSet = Boolean(st.forwarder && st.bookingReference);
-  const anyFreight = Boolean(st.forwarder || st.carrier || st.bookingReference || st.schedule.etd);
   st.status = cancelled
     ? "cancelled"
     : m.delivered
       ? "delivered"
-      : m.arrived
-        ? "arrived"
-        : m.departed
-          ? "in-transit"
-          : m.loaded
-            ? "loaded"
-            : m["gate-in"] || m.stuffed
-              ? "at-origin"
-              : leo && freightSet && st.instructionsStatus === "ready"
-                ? "ready-to-ship"
-                : freightSet
-                  ? "customs-preparation"
-                  : anyFreight
+      : m.clearance
+        ? "destination-clearance"
+        : m.arrived
+          ? "arrived"
+          : m.departed
+            ? "in-transit"
+            : m.loaded
+              ? "loaded"
+              : m["gate-in"] || m.stuffed
+                ? "at-origin"
+                : !cargoComplete(st)
+                  ? "preparing"
+                  : !freightBooked(st)
                     ? "freight-setup"
-                    : "preparing";
+                    : st.shippingBill === "leo-received" && st.instructionsStatus === "ready"
+                      ? "ready-to-ship"
+                      : "customs-preparation";
   return st;
+}
+
+/** Forwarder, booking and ETD in place — freight setup is done. */
+export function freightBooked(st: ShipmentState): boolean {
+  return Boolean(st.forwarder && st.bookingReference && st.schedule.etd);
+}
+
+export type ShipmentPhase = "Setup" | "Export Clearance" | "Origin" | "Transit" | "Destination" | "Completed" | "Cancelled";
+
+const PHASE: Record<ShipmentStatus, ShipmentPhase> = {
+  preparing: "Setup",
+  "freight-setup": "Setup",
+  "customs-preparation": "Export Clearance",
+  "ready-to-ship": "Origin",
+  "at-origin": "Origin",
+  loaded: "Origin",
+  "in-transit": "Transit",
+  arrived: "Destination",
+  "destination-clearance": "Destination",
+  delivered: "Completed",
+  cancelled: "Cancelled",
+};
+
+/** Where the shipment is in its workflow, in a phrase. */
+export function shipmentStage(sh: ExporterShipment, st: ShipmentState): { phase: ShipmentPhase; detail: string } {
+  const phase = PHASE[st.status];
+  const sbLabel = SHIPPING_BILL_STEPS[shippingBillIndex(st.shippingBill)].label;
+  switch (st.status) {
+    case "preparing":
+      return { phase, detail: "Cargo details incomplete" };
+    case "freight-setup":
+      return { phase, detail: !st.forwarder ? "Forwarder not assigned" : !st.bookingReference ? "Booking pending" : "ETD not set" };
+    case "customs-preparation":
+      return { phase, detail: st.shippingBill === "leo-received" ? "Shipping Instructions pending" : `Shipping Bill: ${sbLabel} (demo)` };
+    case "ready-to-ship":
+      return { phase, detail: "LEO received (demo) · awaiting departure" };
+    case "at-origin":
+      return { phase, detail: st.milestones["gate-in"] ? "Gated in · awaiting loading" : "Stuffed · awaiting gate-in" };
+    case "loaded":
+      return { phase, detail: "Loaded · awaiting departure" };
+    case "in-transit":
+      return { phase, detail: `To ${sh.route.portOfDischarge}` };
+    case "arrived":
+      return { phase, detail: `At ${sh.route.portOfDischarge}` };
+    case "destination-clearance":
+      return { phase, detail: "Destination customs clearance" };
+    case "delivered":
+      return { phase, detail: st.milestones.delivered ? `Delivered ${shortDate(st.milestones.delivered)}` : "Delivered" };
+    case "cancelled":
+      return { phase, detail: "Cancelled" };
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -499,7 +568,12 @@ export interface ReadinessItem {
   label: string;
   done: boolean;
   detail?: string;
+  /** How SUMIT names the item when it's outstanding. */
+  short?: string;
 }
+
+/** "a, b and c". */
+const joinAnd = (items: readonly string[]) => (items.length > 1 ? `${items.slice(0, -1).join(", ")} and ${items.at(-1)}` : (items[0] ?? ""));
 
 const isReady = (d?: OrderDocument) => Boolean(d && (d.status === "ready" || d.status === "verified"));
 const CERT_TYPES = new Set(["certificate-of-origin", "phytosanitary-certificate", "fumigation-certificate", "health-certificate", "inspection-certificate"]);
@@ -520,24 +594,26 @@ export function customsReadiness(sh: ExporterShipment, st: ShipmentState, os: Or
   const certsReady = certs.filter(isReady);
   const sb = shippingBillIndex(st.shippingBill);
   const items: ReadinessItem[] = [
-    { key: "invoice", label: "Commercial Invoice ready", done: isReady(doc("commercial-invoice")), detail: "Order document" },
-    { key: "packing", label: "Packing List ready", done: isReady(doc("packing-list")), detail: "Order document" },
+    { key: "invoice", label: "Commercial Invoice ready", done: isReady(doc("commercial-invoice")), detail: "Order document", short: "the commercial invoice" },
+    { key: "packing", label: "Packing List ready", done: isReady(doc("packing-list")), detail: "Order document", short: "the packing list" },
   ];
   if (certs.length) {
+    const outstanding = certs.filter((c) => !isReady(c)).map((c) => c.label.replace(/ Certificate$/, ""));
     items.push({
       key: "certificates",
       label: "Required certificates ready",
-      done: certsReady.length === certs.length,
-      detail: `${certsReady.length} of ${certs.length} ready${certsReady.length < certs.length ? ` — ${certs.filter((c) => !isReady(c)).map((c) => c.label.replace(/ Certificate$/, "")).join(", ")} outstanding` : ""}`,
+      done: outstanding.length === 0,
+      detail: `${certsReady.length} of ${certs.length} ready${outstanding.length ? ` — ${outstanding.join(", ")} outstanding` : ""}`,
+      short: `${joinAnd(outstanding.map((c) => c.toLowerCase()))} preparation`,
     });
   }
-  items.push({ key: "instructions", label: "Shipping Instructions ready", done: st.instructionsStatus === "ready" });
-  items.push({ key: "cargo", label: "Cargo details complete", done: cargoComplete(st), detail: "Packages, net and gross weight" });
-  if (usesContainers(sh.route)) items.push({ key: "container", label: "Container details complete", done: containerComplete(st), detail: "Type, count, container and seal numbers" });
-  items.push({ key: "cha", label: "CHA assigned", done: Boolean(st.cha) });
-  items.push({ key: "sb-data", label: "Shipping Bill data prepared", done: sb >= shippingBillIndex("cha-review") });
-  items.push({ key: "sb-filed", label: "Shipping Bill filed (demo)", done: sb >= shippingBillIndex("filed") });
-  items.push({ key: "leo", label: "LEO received (demo)", done: st.shippingBill === "leo-received" });
+  items.push({ key: "instructions", label: "Shipping Instructions ready", done: st.instructionsStatus === "ready", short: "Shipping Instructions" });
+  items.push({ key: "cargo", label: "Cargo details complete", done: cargoComplete(st), detail: "Packages, net and gross weight", short: "cargo details" });
+  if (usesContainers(sh.route)) items.push({ key: "container", label: "Container details complete", done: containerComplete(st), detail: "Type, count, container and seal numbers", short: "container details" });
+  items.push({ key: "cha", label: "CHA assigned", done: Boolean(st.cha), detail: st.cha, short: "CHA assignment" });
+  items.push({ key: "sb-data", label: "Shipping Bill data prepared", done: sb >= shippingBillIndex("cha-review"), short: "Shipping Bill data" });
+  items.push({ key: "sb-filed", label: "Shipping Bill filed (demo)", done: sb >= shippingBillIndex("filed"), short: "Shipping Bill filing" });
+  items.push({ key: "leo", label: "LEO received (demo)", done: st.shippingBill === "leo-received", short: "LEO" });
   return items;
 }
 
@@ -550,14 +626,14 @@ export function freightReadiness(sh: ExporterShipment, st: ShipmentState, os: Or
       done: Boolean(os.production.actualCargoReady || os.production.expectedCargoReady),
       detail: os.production.actualCargoReady ? `Ready ${shortDate(os.production.actualCargoReady)}` : os.production.expectedCargoReady ? `Expected ${shortDate(os.production.expectedCargoReady)}` : undefined,
     },
-    { key: "forwarder", label: "Forwarder assigned", done: Boolean(st.forwarder), detail: st.forwarder },
-    { key: "carrier", label: sh.route.mode === "air" ? "Airline assigned" : "Carrier assigned", done: Boolean(st.carrier), detail: st.carrier },
-    { key: "booking", label: "Booking reference", done: Boolean(st.bookingReference), detail: st.bookingReference },
-    { key: "ports", label: "Ports confirmed", done: Boolean(sh.route.portOfLoading && sh.route.portOfDischarge), detail: `${sh.route.portOfLoading} → ${sh.route.portOfDischarge}` },
+    { key: "forwarder", label: "Forwarder assigned", done: Boolean(st.forwarder), detail: st.forwarder, short: "a forwarder" },
+    { key: "carrier", label: sh.route.mode === "air" ? "Airline assigned" : "Carrier assigned", done: Boolean(st.carrier), detail: st.carrier, short: sh.route.mode === "air" ? "an airline" : "a carrier" },
+    { key: "booking", label: "Booking reference", done: Boolean(st.bookingReference), detail: st.bookingReference, short: "a booking reference" },
+    { key: "ports", label: "Ports confirmed", done: Boolean(sh.route.portOfLoading && sh.route.portOfDischarge), detail: `${sh.route.portOfLoading} → ${sh.route.portOfDischarge}`, short: "ports" },
   ];
-  if (usesContainers(sh.route)) items.push({ key: "container", label: "Container planned", done: Boolean(st.container.type && st.container.count) });
-  items.push({ key: "etd", label: "ETD set", done: Boolean(st.schedule.etd), detail: st.schedule.etd ? shortDate(st.schedule.etd) : undefined });
-  items.push({ key: "instructions", label: "Shipping Instructions ready", done: st.instructionsStatus === "ready" });
+  if (usesContainers(sh.route)) items.push({ key: "container", label: "Container planned", done: Boolean(st.container.type && st.container.count), short: "a container plan" });
+  items.push({ key: "etd", label: "ETD set", done: Boolean(st.schedule.etd), detail: st.schedule.etd ? shortDate(st.schedule.etd) : undefined, short: "an ETD" });
+  items.push({ key: "instructions", label: "Shipping Instructions ready", done: st.instructionsStatus === "ready", short: "Shipping Instructions" });
   return items;
 }
 
@@ -574,25 +650,30 @@ export interface MilestoneRow {
   label: string;
   /** ISO timestamp or date, only when it has happened. */
   at?: string;
+  /** Planned date (cargo-ready, ETD, ETA) while it hasn't happened. */
+  expected?: string;
+  demo?: boolean;
 }
 
 export function shipmentMilestones(sh: ExporterShipment, st: ShipmentState, os: OrderState): MilestoneRow[] {
   const rows: MilestoneRow[] = [
     { key: "created", label: "Shipment created", at: sh.createdAt },
-    { key: "cargo-ready", label: "Cargo ready", at: os.production.actualCargoReady },
+    { key: "cargo-ready", label: "Cargo ready", at: os.production.actualCargoReady, expected: os.production.expectedCargoReady },
     { key: "forwarder", label: "Forwarder assigned", at: st.firstAt.forwarder },
     { key: "booking", label: "Booking confirmed", at: st.firstAt.booking },
   ];
   if (usesContainers(sh.route)) rows.push({ key: "container", label: "Container assigned", at: st.firstAt.container });
   rows.push(
     { key: "stuffed", label: "Stuffing", at: st.milestones.stuffed },
-    { key: "sb-prepared", label: "Shipping Bill prepared", at: st.shippingBillAt["ready-for-filing"] },
-    { key: "sb-filed", label: "Customs filed (demo)", at: st.shippingBillAt.filed },
-    { key: "leo", label: "LEO received (demo)", at: st.shippingBillAt["leo-received"] },
+    { key: "sb-prepared", label: "Shipping Bill prepared", at: st.shippingBillAt["ready-for-filing"], demo: true },
+    { key: "sb-filed", label: "Customs filed", at: st.shippingBillAt.filed, demo: true },
+    { key: "leo", label: "LEO received", at: st.shippingBillAt["leo-received"], demo: true },
     { key: "gate-in", label: "Gate-In", at: st.milestones["gate-in"] },
     { key: "loaded", label: "Loaded", at: st.milestones.loaded },
-    { key: "departed", label: "Departed", at: st.milestones.departed },
-    { key: "arrived", label: "Arrived", at: st.milestones.arrived },
+    { key: "departed", label: "Departed", at: st.milestones.departed, expected: st.schedule.etd },
+    { key: "in-transit", label: "In Transit", at: st.milestones.departed },
+    { key: "arrived", label: "Arrived", at: st.milestones.arrived, expected: st.schedule.eta },
+    { key: "clearance", label: "Destination Clearance", at: st.milestones.clearance },
     { key: "delivered", label: "Delivered", at: st.milestones.delivered },
   );
   return rows;
@@ -616,11 +697,13 @@ export function shipmentActions(sh: ExporterShipment, st: ShipmentState, os: Ord
     if (certs.length) out.push(`${certs.length} required certificate${certs.length === 1 ? "" : "s"} incomplete`);
     const paper = ["commercial-invoice", "packing-list"].filter((t) => !isReady(os.documents.find((d) => d.type === t)));
     if (paper.length) out.push(`${paper.length === 2 ? "Commercial Invoice and Packing List" : paper[0] === "commercial-invoice" ? "Commercial Invoice" : "Packing List"} not ready`);
+    if (!os.paymentReady) out.push(`Payment not confirmed on the order (${os.paymentStep.label})`);
     if (st.customs === "query-received" || st.customs === "response-preparing") out.push("Respond to customs query (demo)");
+    if (st.customs === "examination") out.push("Customs examination pending (demo)");
     if (st.shippingBill === "filed" || st.shippingBill === "acknowledged") out.push("Awaiting LEO (demo)");
   } else if (st.status === "in-transit" && st.transportDocument !== "final-issued") {
     out.push(`${transportDocumentName(sh.route.mode)} final not issued`);
-  } else if (st.status === "arrived") {
+  } else if (st.status === "arrived" || st.status === "destination-clearance") {
     out.push("Confirm delivery");
   }
   return out;
@@ -631,9 +714,9 @@ export function nextAction(sh: ExporterShipment, st: ShipmentState, os: OrderSta
   if (actions.length) return actions[0];
   switch (st.status) {
     case "ready-to-ship":
-      return "Record gate-in or stuffing";
+      return usesContainers(sh.route) ? "Record stuffing or gate-in" : "Record gate-in";
     case "at-origin":
-      return "Record loading";
+      return st.milestones["gate-in"] ? "Record loading" : "Record gate-in";
     case "loaded":
       return "Record departure";
     case "in-transit":
@@ -653,10 +736,10 @@ export function shipmentInsights(sh: ExporterShipment, st: ShipmentState, order:
   const unit = UNIT_SHORT[sh.allocation.unit];
   if (isPreDeparture(st.status)) {
     const customs = customsReadiness(sh, st, os);
-    const remaining = customs.filter((i) => !i.done).map((i) => i.label.replace(/ (ready|complete|assigned|prepared|received)( \(demo\))?$/i, "").toLowerCase());
+    const remaining = customs.filter((i) => !i.done).map((i) => i.short ?? i.label);
     out.push(
       remaining.length
-        ? `This shipment is ${score(customs)}% customs-ready. Remaining: ${remaining.slice(0, 3).join(", ")}${remaining.length > 3 ? ` and ${remaining.length - 3} more` : ""}.`
+        ? `This shipment is ${score(customs)}% customs-ready. ${listPhrase(remaining)} remain${remaining.length === 1 ? "s" : ""}.`
         : "Every export-clearance item is complete (demo states).",
     );
   }
@@ -685,6 +768,12 @@ export function shipmentInsights(sh: ExporterShipment, st: ShipmentState, order:
     out.push(slack >= 0 ? `ETA is ${slack} day${slack === 1 ? "" : "s"} before the agreed delivery date.` : `ETA is ${-slack} day${slack === -1 ? "" : "s"} after the agreed delivery date.`);
   }
   return out;
+}
+
+/** "a, b and 2 more" — first letter capitalised. */
+function listPhrase(items: readonly string[]): string {
+  const text = joinAnd(items.length > 3 ? [...items.slice(0, 2), `${items.length - 2} more`] : items);
+  return text.charAt(0).toUpperCase() + text.slice(1);
 }
 
 /** Days until ETA when in transit; used for "arriving soon". */

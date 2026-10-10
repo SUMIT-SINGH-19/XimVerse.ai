@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useT } from "@/i18n/client";
 import { IMPORTER_BASE, importerHref, type ImporterNavItem as NavItem } from "@/lib/importer-nav";
 import { focusRing } from "./styles";
 
@@ -17,6 +18,7 @@ export function ImporterNavItem({
   item: NavItem;
   onNavigate?: () => void;
 }) {
+  const t = useT();
   const pathname = usePathname();
   const href = importerHref(item.slug);
   const active = isActive(pathname, href);
@@ -34,7 +36,7 @@ export function ImporterNavItem({
         aria-hidden
         className={`size-4.5 shrink-0 ${active ? "text-orange-soft" : "text-ink-faint group-hover:text-teal"}`}
       />
-      <span className="truncate">{item.label}</span>
+      <span className="truncate">{t(item.label)}</span>
       {active && (
         <span aria-hidden className="ml-auto size-1.5 shrink-0 rounded-full bg-orange" />
       )}

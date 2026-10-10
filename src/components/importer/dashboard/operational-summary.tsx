@@ -6,6 +6,8 @@ import {
   IMPORT_STAGES,
   type ImporterDashboardData,
 } from "@/lib/importer-dashboard-data";
+import { getT } from "@/i18n/server";
+import type { Translate } from "@/i18n/translate";
 
 interface Metric {
   label: string;
@@ -15,47 +17,49 @@ interface Metric {
   attention?: boolean;
 }
 
-function metricsFor(data: ImporterDashboardData): Metric[] {
+function metricsFor(data: ImporterDashboardData, t: Translate): Metric[] {
   const arriving = arrivingWithin(data, 7);
   const stagesInUse = IMPORT_STAGES.filter((s) => s.id !== "delivered" && data.pipeline[s.id] > 0);
   const highPriority = data.actions.filter((a) => a.priority === "high").length;
 
   return [
     {
-      label: "Active Imports",
+      label: t("Active Imports"),
       value: activeImportCount(data),
-      hint: `Across ${stagesInUse.length} stages`,
+      hint: t("Across {count} stages", { count: stagesInUse.length }),
       icon: Boxes,
     },
     {
-      label: "Arriving This Week",
+      label: t("Arriving This Week"),
       value: arriving.length,
       hint: arriving[0]
-        ? `Next: ${arriving[0].route.destination}, ${formatDayMonth(arriving[0].eta)}`
-        : "Nothing due",
+        ? t("Next: {place}, {date}", { place: arriving[0].route.destination, date: formatDayMonth(arriving[0].eta) })
+        : t("Nothing due"),
       icon: CalendarClock,
     },
     {
-      label: "Customs Pending",
+      label: t("Customs Pending"),
       value: data.pipeline.customs,
-      hint: "Awaiting clearance",
+      hint: t("Awaiting clearance"),
       icon: Stamp,
     },
     {
-      label: "Actions Required",
+      label: t("Actions Required"),
       value: data.actions.length,
-      hint: highPriority ? `${highPriority} high priority` : "None urgent",
+      hint: highPriority ? t("{count} high priority", { count: highPriority }) : t("None urgent"),
       icon: TriangleAlert,
       attention: data.actions.length > 0,
     },
   ];
 }
 
-export function OperationalSummary({ data }: { data: ImporterDashboardData }) {
+export async function OperationalSummary({ data }: { data: ImporterDashboardData }) {
+  const t = await getT();
+
   return (
-    <section aria-label="Operational summary">
+    <section aria-label={t("Operational summary")}>
       <dl className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        {metricsFor(data).map(({ label, value, hint, icon: Icon, attention }) => (
+        {metricsFor(data, t).map(({ label, value, hint, icon: Icon, attention }) => (
           <div
             key={label}
             className="flex items-start gap-3 rounded-xl border border-line bg-surface px-4 py-3.5"

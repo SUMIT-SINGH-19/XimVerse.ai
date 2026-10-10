@@ -9,9 +9,10 @@ const TONE: Record<ShipmentStatus, PillTone> = {
   "ready-to-ship": "brand",
   "at-origin": "brand",
   loaded: "brand",
-  "in-transit": "solid",
-  arrived: "solid",
-  delivered: "muted",
+  "in-transit": "brand",
+  arrived: "brand",
+  "destination-clearance": "brand",
+  delivered: "solid",
   cancelled: "muted",
 };
 

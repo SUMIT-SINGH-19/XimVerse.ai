@@ -6,6 +6,7 @@ import {
   type Priority,
   type ShipmentType,
 } from "@/lib/cha-dashboard-data";
+import { T } from "@/i18n/client";
 
 /*
  * Small labels shared by the CHA dashboard sections. Severity runs from a
@@ -26,7 +27,7 @@ export function PriorityBadge({ priority }: { priority: Priority }) {
   return (
     <span className={`${chip} ${PRIORITY_STYLE[priority]}`}>
       <span aria-hidden className="size-1.5 rounded-full bg-current" />
-      {PRIORITY_LABEL[priority]}
+      <T>{PRIORITY_LABEL[priority]}</T>
     </span>
   );
 }
@@ -40,7 +41,7 @@ const ACTION_STATUS_STYLE: Record<ActionStatus, string> = {
 };
 
 export function ActionStatusBadge({ status }: { status: ActionStatus }) {
-  return <span className={`${chip} ${ACTION_STATUS_STYLE[status]}`}>{ACTION_STATUS_LABEL[status]}</span>;
+  return <span className={`${chip} ${ACTION_STATUS_STYLE[status]}`}><T>{ACTION_STATUS_LABEL[status]}</T></span>;
 }
 
 /** "XIM-EXP-1042" in the monospace used for references across the app. */

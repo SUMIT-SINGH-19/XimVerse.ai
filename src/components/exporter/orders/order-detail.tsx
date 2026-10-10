@@ -18,7 +18,6 @@ import {
   DOCUMENT_STATUS_LABEL,
   EXECUTION_STAGES,
   orderInsights,
-  orderState,
   PAYMENT_STEPS,
   preShipmentReadiness,
   readinessScore,
@@ -38,6 +37,9 @@ import {
 } from "@/lib/exporter-order-store";
 import { useExporterDeals } from "@/lib/exporter-deal-store";
 import { useIsClient } from "@/lib/exporter-quotation-store";
+import { useExporterShipments } from "@/lib/exporter-shipment-store";
+import { orderStateWithShipments, shipmentEligibility, shipmentState, shipmentsForOrder } from "@/lib/exporter-shipments";
+import { ShipmentStatusPill } from "@/components/exporter/shipments/shipment-ui";
 import { DocumentStatusPill, OrderStatusPill, ProgressBar } from "./order-ui";
 
 const primary = `inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-orange px-4 text-sm font-semibold text-on-brand shadow-sm shadow-orange/20 transition hover:brightness-95 disabled:opacity-50 ${focusRing}`;
@@ -77,8 +79,6 @@ function eventText(e: OrderEvent, o: ExporterOrder): string {
       const d = o.documents.find((x) => x.id === e.document?.id);
       return `${d?.label ?? "Document"} → ${e.document ? DOCUMENT_STATUS_LABEL[e.document.status] : ""}`;
     }
-    case "shipment-created":
-      return `Shipment ${e.shipment?.id} created`;
     default:
       return e.type.replace(/-/g, " ");
   }
@@ -89,7 +89,13 @@ export function OrderDetail({ order: o }: { order: ExporterOrder }) {
   const deals = useExporterDeals();
   const deal = deals.find((d) => d.id === o.dealId) ?? findSeededDeal(o.dealId);
   const opp = findOpportunity(o.requirementId);
-  const s = orderState(o);
+  const allShipments = useExporterShipments();
+  const s = orderStateWithShipments(o, allShipments);
+  const shipments = shipmentsForOrder(o.id, allShipments).map((sh) => ({ sh, st: shipmentState(sh) }));
+  const eligibility = shipmentEligibility(o, s);
+  const q = s.quantities;
+  const fullyAllocated = q.allocated >= q.ordered;
+  const createLabel = shipments.some((x) => x.st.status !== "cancelled") ? "Create Another Shipment" : "Create Shipment";
   const readiness = preShipmentReadiness(o, s);
   const score = readinessScore(o, s);
   const actions = actionsRequired(o, s);
@@ -119,8 +125,10 @@ export function OrderDetail({ order: o }: { order: ExporterOrder }) {
     <a href="#production" className={primary}><Factory className="size-4" aria-hidden />Start Production</a>
   ) : s.production.status === "in-progress" ? (
     <a href="#production" className={primary}><Factory className="size-4" aria-hidden />Update Production</a>
+  ) : eligibility.ok ? (
+    <Link href={exporterHref(`shipments/new?order=${o.id}`)} className={primary}><Ship className="size-4" aria-hidden />{createLabel}</Link>
   ) : (
-    <button type="button" disabled title="Shipments are the next feature" className={`${primary} cursor-not-allowed bg-orange/40`}><Ship className="size-4" aria-hidden />Create Shipment · coming next</button>
+    <a href="#shipments" className={secondary}><Ship className="size-4" aria-hidden />{fullyAllocated ? "Fully Allocated" : "View Shipments"}</a>
   );
 
   const chain = [
@@ -130,6 +138,7 @@ export function OrderDetail({ order: o }: { order: ExporterOrder }) {
     ...(o.negotiationId ? [{ label: "Negotiation", id: o.negotiationId, href: exporterHref(`negotiations/${o.negotiationId}`) }] : []),
     { label: "Deal", id: o.dealId, href: exporterHref(`deals/${o.dealId}`) },
     { label: "Order", id: o.id },
+    ...shipments.map(({ sh }, i) => ({ label: i === 0 ? (shipments.length > 1 ? "Shipments" : "Shipment") : "", id: sh.id, href: exporterHref(`shipments/${sh.id}`) })),
   ];
 
   const terms: [string, React.ReactNode][] = [
@@ -291,16 +300,16 @@ export function OrderDetail({ order: o }: { order: ExporterOrder }) {
             )}
           </Card>
 
-          <Card title="Document Requirements" aside={<span className="text-xs text-ink-faint">Shipment documents only — company credentials live in Company Profile</span>}>
+          <Card title="Document Requirements" aside={<span className="text-xs text-ink-faint">Order-level documents — company credentials live in Company Profile</span>}>
             <ul className="divide-y divide-line rounded-xl border border-line">
               {s.documents.map((d) => (
                 <li key={d.id} className="flex flex-wrap items-center justify-between gap-2 px-4 py-2.5">
                   <span className="min-w-0 text-sm">
                     <span className="font-medium text-ink">{d.label}</span>
-                    <span className="block text-xs text-ink-faint">{d.phase === "shipment-stage" ? "Issued at shipment" : d.commitment ? `Deal: ${COMMITMENT_LABEL[d.commitment]}` : "Pre-shipment"}</span>
+                    <span className="block text-xs text-ink-faint">{d.commitment ? `Deal: ${COMMITMENT_LABEL[d.commitment]}` : "Pre-shipment"}</span>
                   </span>
-                  {d.phase === "shipment-stage" || !live ? (
-                    <DocumentStatusPill status={d.status} label={d.phase === "shipment-stage" ? "At shipment" : undefined} />
+                  {!live ? (
+                    <DocumentStatusPill status={d.status} />
                   ) : (
                     <select
                       aria-label={`${d.label} status`}
@@ -316,7 +325,7 @@ export function OrderDetail({ order: o }: { order: ExporterOrder }) {
                 </li>
               ))}
             </ul>
-            <p className="mt-2 text-xs text-ink-faint">No files are uploaded here. Shipping bill and BL/AWB are never marked filed from the order.</p>
+            <p className="mt-2 text-xs text-ink-faint">No files are uploaded here. Shipping Instructions, Shipping Bill, LEO and BL/AWB are tracked on each shipment.</p>
           </Card>
 
           <Card title="Compliance Execution">
@@ -337,33 +346,76 @@ export function OrderDetail({ order: o }: { order: ExporterOrder }) {
             </div>
           </Card>
 
-          <Card title="Shipment Readiness">
-            <dl className="grid grid-cols-2 gap-x-4 gap-y-3 text-sm sm:grid-cols-3">
+          <Card
+            id="shipments"
+            title="Shipment Allocations"
+            aside={
+              fullyAllocated ? (
+                <span className="rounded-full bg-teal-soft px-2.5 py-0.5 text-xs font-semibold text-teal">Fully Allocated</span>
+              ) : (
+                <span className="text-xs text-ink-muted">One order can be split across several shipments</span>
+              )
+            }
+          >
+            <dl className="grid grid-cols-2 gap-px overflow-hidden rounded-xl border border-line bg-line sm:grid-cols-3 lg:grid-cols-6">
+              {([
+                ["Ordered", q.ordered],
+                ["Produced", q.produced],
+                ["Allocated", q.allocated],
+                ["Available", q.available],
+                ["Shipped", q.shipped],
+                ["Delivered", q.delivered],
+              ] as [string, number][]).map(([label, value]) => (
+                <div key={label} className="bg-surface px-3 py-2.5">
+                  <dt className="text-xs font-medium uppercase tracking-[0.08em] text-ink-faint">{label}</dt>
+                  <dd className={`mt-0.5 font-semibold tabular-nums ${label === "Available" && value > 0 ? "text-teal" : "text-ink"}`}>{value.toLocaleString("en-US")} {unit}</dd>
+                </div>
+              ))}
+            </dl>
+            {shipments.length > 0 && (
+              <ul className="mt-4 divide-y divide-line rounded-xl border border-line">
+                {shipments.map(({ sh, st }) => (
+                  <li key={sh.id} className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 px-4 py-2.5">
+                    <Link href={exporterHref(`shipments/${sh.id}`)} className={`font-mono text-sm font-semibold text-teal hover:text-ink ${focusRing}`}>{sh.id}</Link>
+                    <span className={`text-sm tabular-nums ${st.status === "cancelled" ? "text-ink-faint line-through" : "text-ink"}`}>{sh.allocation.quantity.toLocaleString("en-US")} {unit}</span>
+                    <ShipmentStatusPill status={st.status} />
+                  </li>
+                ))}
+              </ul>
+            )}
+            <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-xl bg-canvas px-4 py-3">
+              <p className="text-sm text-ink-muted">
+                Allocated <span className="font-semibold tabular-nums text-ink">{q.allocated.toLocaleString("en-US")} / {q.ordered.toLocaleString("en-US")} {unit}</span>
+                {" · "}Remaining <span className="font-semibold tabular-nums text-ink">{Math.max(0, q.ordered - q.allocated).toLocaleString("en-US")} {unit}</span>
+                {!eligibility.ok && !fullyAllocated && live && <span className="block text-xs">{eligibility.blockers.join(" · ")}</span>}
+              </p>
+              {eligibility.ok ? (
+                <Link href={exporterHref(`shipments/new?order=${o.id}`)} className={secondary}>
+                  <Ship className="size-4" aria-hidden />
+                  {createLabel}
+                </Link>
+              ) : fullyAllocated ? (
+                <span className="inline-flex items-center gap-1.5 text-sm font-semibold text-teal"><Check className="size-4" aria-hidden />Fully Allocated</span>
+              ) : null}
+            </div>
+            <dl className="mt-4 grid grid-cols-2 gap-x-4 gap-y-3 text-sm sm:grid-cols-3">
               <div><dt className="text-xs text-ink-faint">Agreed delivery</dt><dd className="text-ink">{t.estimatedDelivery ? formatDate(t.estimatedDelivery) : "—"}</dd></div>
               <div><dt className="text-xs text-ink-faint">Cargo ready</dt><dd className="text-ink">{s.production.actualCargoReady ? formatDate(s.production.actualCargoReady) : s.production.expectedCargoReady ? `${formatDate(s.production.expectedCargoReady)} (expected)` : "—"}</dd></div>
               <div><dt className="text-xs text-ink-faint">Port of loading</dt><dd className="text-ink">{t.portOfLoading ?? "—"}</dd></div>
               <div><dt className="text-xs text-ink-faint">Incoterm</dt><dd className="text-ink">{t.incoterm} {t.namedPlace}</dd></div>
               <div><dt className="text-xs text-ink-faint">Destination</dt><dd className="text-ink">{opp?.delivery.destinationLocation ?? t.namedPlace}</dd></div>
-              <div><dt className="text-xs text-ink-faint">Allocated to shipments</dt><dd className="tabular-nums text-ink">{s.shipments.reduce((n, x) => n + x.quantity, 0).toLocaleString("en-US")} of {s.production.ordered.toLocaleString("en-US")} {unit}</dd></div>
             </dl>
-            <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-xl bg-canvas px-4 py-3">
-              <p className="text-sm text-ink-muted">{s.shipments.length ? `${s.shipments.length} shipment(s)` : "No shipments created"} — an order can be split across several shipments.</p>
-              <button type="button" disabled title="Shipments are the next feature" className={`${secondary} cursor-not-allowed`}>
-                <Ship className="size-4" aria-hidden />
-                Create Shipment · coming next
-              </button>
-            </div>
           </Card>
 
           <Card title="Source Traceability">
             <ol className="flex flex-col items-start gap-1">
               {chain.map((c, i) => (
-                <li key={c.label} className="flex flex-col items-start">
+                <li key={c.id} className="flex flex-col items-start">
                   <span className="flex items-baseline gap-2">
                     <span className="w-24 text-xs text-ink-faint">{c.label}</span>
                     {c.href ? <Link href={c.href} className={`font-mono text-sm text-teal hover:text-ink ${focusRing}`}>{c.id}</Link> : <span className="font-mono text-sm font-semibold text-ink">{c.id}</span>}
                   </span>
-                  {i < chain.length - 1 && <ArrowDown className="ml-26 size-3.5 text-ink-faint" aria-hidden />}
+                  {i < chain.length - 1 && chain[i + 1].label !== "" && <ArrowDown className="ml-26 size-3.5 text-ink-faint" aria-hidden />}
                 </li>
               ))}
             </ol>

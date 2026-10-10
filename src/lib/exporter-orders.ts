@@ -430,6 +430,8 @@ export function orderState(o: ExporterOrder, allocations: readonly ShipmentAlloc
   else if (completed) status = "completed";
   else if (held) status = "on-hold";
   else if (!confirmed) status = "awaiting-confirmation";
+  // Completed once every ordered unit has been delivered by its shipments.
+  else if (p.ordered > 0 && quantities.delivered >= p.ordered) status = "completed";
   // In shipment once cargo is allocated and production is done (or everything is allocated).
   else if (allocated > 0 && (p.status === "completed" || allocated >= p.ordered)) status = "in-shipment";
   else if (p.status === "completed") status = readiness === 100 ? "ready-to-ship" : "pre-shipment";
@@ -442,7 +444,9 @@ export function orderState(o: ExporterOrder, allocations: readonly ShipmentAlloc
       : status === "completed"
         ? "Delivery"
         : status === "in-shipment"
-          ? "Shipment"
+          ? quantities.shipped >= p.ordered
+            ? "Delivery"
+            : "Shipment"
           : status === "ready-to-ship"
             ? "Ready to Ship"
             : status === "pre-shipment"

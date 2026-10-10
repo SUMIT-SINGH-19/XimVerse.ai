@@ -8,7 +8,8 @@
  */
 
 import { BUYER_OPPORTUNITIES, isOpen, opportunitySummary, shortCountry } from "./exporter-opportunities";
-import { actionsRequired, isActiveOrder, orderState, readinessScore, SEEDED_ORDERS } from "./exporter-orders";
+import { actionsRequired, isActiveOrder, readinessScore, SEEDED_ORDERS } from "./exporter-orders";
+import { isActiveShipment, orderStateWithShipments, SEEDED_SHIPMENTS, shipmentActions, shipmentState } from "./exporter-shipments";
 import { buildPipeline, formatCompactMoney, pipelineSummary } from "./exporter-quotation-pipeline";
 import { dealStatus, dealValueMinor, isActiveDeal, SEEDED_DEALS } from "./exporter-deals";
 
@@ -63,9 +64,9 @@ export interface ActiveOrder {
   progress: number;
 }
 
-// Seeded orders only: the dashboard is prerendered, so orders created in this
-// browser show on the Orders page but not here.
-const SEEDED_ORDER_ROWS = SEEDED_ORDERS.map((o) => ({ o, s: orderState(o) })).filter((x) => isActiveOrder(x.s.status));
+// Seeded orders and shipments only: the dashboard is prerendered, so orders
+// and shipments created in this browser show on their own pages but not here.
+const SEEDED_ORDER_ROWS = SEEDED_ORDERS.map((o) => ({ o, s: orderStateWithShipments(o, SEEDED_SHIPMENTS) })).filter((x) => isActiveOrder(x.s.status));
 
 export const ACTIVE_ORDERS: readonly ActiveOrder[] = SEEDED_ORDER_ROWS.map(({ o, s }) => {
   const opp = BUYER_OPPORTUNITIES.find((x) => x.rfqId === o.requirementId);
@@ -80,6 +81,12 @@ export const ACTIVE_ORDERS: readonly ActiveOrder[] = SEEDED_ORDER_ROWS.map(({ o,
 
 const ORDERS_NEEDING_ACTION = SEEDED_ORDER_ROWS.filter(({ o, s }) => actionsRequired(o, s).length > 0).length;
 
+const SHIPMENTS_NEEDING_ACTION = SEEDED_SHIPMENTS.filter((sh) => {
+  const order = SEEDED_ORDERS.find((o) => o.id === sh.orderId);
+  const st = shipmentState(sh);
+  return order && isActiveShipment(st.status) && shipmentActions(sh, st, orderStateWithShipments(order, SEEDED_SHIPMENTS)).length > 0;
+}).length;
+
 // ---------------------------------------------------------------------------
 // KPIs, actions and assistant prompts
 // ---------------------------------------------------------------------------
@@ -89,7 +96,9 @@ export interface ExporterKpi {
   label: string;
   /** Pre-formatted headline figure. */
   value: string;
+  /** Detail line as English text with {placeholders}, filled from detailVars when shown. */
   detail: string;
+  detailVars?: Readonly<Record<string, string | number>>;
   /** Highlights the detail line when it calls for attention. */
   emphasis?: boolean;
   /** Nav slug the card links to. */
@@ -103,7 +112,8 @@ export const EXPORTER_KPIS: readonly ExporterKpi[] = [
     key: "opportunities",
     label: "Buyer Opportunities",
     value: String(OPEN_SUMMARY.open),
-    detail: `${OPEN_SUMMARY.newCount} new`,
+    detail: "{count} new",
+    detailVars: { count: OPEN_SUMMARY.newCount },
     emphasis: true,
     slug: "opportunities",
   },
@@ -111,23 +121,28 @@ export const EXPORTER_KPIS: readonly ExporterKpi[] = [
     key: "quotations",
     label: "Active Quotations",
     value: String(QUOTE_SUMMARY.active),
-    detail: `${QUOTE_SUMMARY.byStatus.submitted + QUOTE_SUMMARY.byStatus["under-review"]} awaiting response`,
+    detail: "{count} awaiting response",
+    detailVars: { count: QUOTE_SUMMARY.byStatus.submitted + QUOTE_SUMMARY.byStatus["under-review"] },
     slug: "quotations",
   },
   {
     key: "deals",
     label: "Active Deals",
     value: String(ACTIVE_DEALS.length),
-    detail: Object.entries(DEAL_VALUE_BY_CURRENCY)
-      .map(([c, minor]) => formatCompactMoney(minor, c as "USD"))
-      .join(" · ") + " contract value",
+    detail: "{value} contract value",
+    detailVars: {
+      value: Object.entries(DEAL_VALUE_BY_CURRENCY)
+        .map(([c, minor]) => formatCompactMoney(minor, c as "USD"))
+        .join(" · "),
+    },
     slug: "deals",
   },
   {
     key: "orders",
     label: "Active Orders",
     value: String(SEEDED_ORDER_ROWS.length),
-    detail: `${ORDERS_NEEDING_ACTION} require action`,
+    detail: "{count} require action",
+    detailVars: { count: ORDERS_NEEDING_ACTION },
     emphasis: ORDERS_NEEDING_ACTION > 0,
     slug: "orders",
   },
@@ -146,7 +161,9 @@ export interface ActionItem {
 export const ACTION_ITEMS: readonly ActionItem[] = [
   { key: "closing", count: 3, label: "opportunities closing within 24 hours", urgent: true, slug: "opportunities" },
   { key: "revisions", count: 2, label: "quotations awaiting revision", slug: "quotations" },
-  { key: "missing-doc", count: 1, label: "shipment document missing", urgent: true, slug: "documents" },
+  ...(SHIPMENTS_NEEDING_ACTION > 0
+    ? [{ key: "shipments", count: SHIPMENTS_NEEDING_ACTION, label: SHIPMENTS_NEEDING_ACTION === 1 ? "shipment needs action" : "shipments need action", urgent: true, slug: "shipments" }]
+    : []),
   { key: "repricing", count: 1, label: "buyer requested updated pricing", slug: "quotations" },
 ];
 

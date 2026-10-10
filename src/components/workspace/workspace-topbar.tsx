@@ -3,6 +3,8 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { BadgeCheck, Bell, Menu, Search } from "lucide-react";
+import { LanguageSwitcher } from "@/components/language-switcher";
+import { useT } from "@/i18n/client";
 import { workspaceHref, workspacePageForPath, type WorkspaceConfig } from "@/lib/workspace-nav";
 import { AssistantButton } from "./assistant-button";
 import { focusRing, iconButton } from "./styles";
@@ -19,6 +21,7 @@ export function WorkspaceTopbar({
   onOpenMenu: () => void;
   menuButtonRef: React.Ref<HTMLButtonElement>;
 }) {
+  const t = useT();
   const page = workspacePageForPath(config, usePathname());
   const { base, identity, assistant } = config;
   const searchId = `${config.key}-search`;
@@ -31,7 +34,7 @@ export function WorkspaceTopbar({
         <span className="flex max-w-52 items-center gap-1 text-sm font-semibold text-ink">
           <span className="truncate">{identity.company}</span>
           {identity.badge && (
-            <BadgeCheck className="size-4 shrink-0 text-teal" aria-label={identity.badge} />
+            <BadgeCheck className="size-4 shrink-0 text-teal" aria-label={t(identity.badge)} />
           )}
         </span>
         <span className="block text-xs text-ink-muted">{identity.location}</span>
@@ -48,7 +51,7 @@ export function WorkspaceTopbar({
           ref={menuButtonRef}
           type="button"
           onClick={onOpenMenu}
-          aria-label="Open navigation"
+          aria-label={t("Open navigation")}
           className={`${iconButton} -ml-2 lg:hidden`}
         >
           <Menu className="size-5" aria-hidden />
@@ -57,11 +60,11 @@ export function WorkspaceTopbar({
         <div className="min-w-0 flex-1 lg:flex-none lg:basis-56">
           {page?.group && (
             <p className="text-[0.6875rem] font-semibold uppercase tracking-[0.14em] text-ink-faint">
-              {page.group}
+              {t(page.group)}
             </p>
           )}
           <p className="truncate text-lg font-semibold tracking-tight text-ink">
-            {page?.label ?? config.roleLabel}
+            {t(page?.label ?? config.roleLabel)}
           </p>
         </div>
 
@@ -71,7 +74,7 @@ export function WorkspaceTopbar({
           className="order-last w-full md:order-0 md:w-auto md:flex-1 lg:max-w-xl"
         >
           <label htmlFor={searchId} className="sr-only">
-            Search the workspace
+            {t("Search the workspace")}
           </label>
           <div className="relative">
             <Search
@@ -81,20 +84,21 @@ export function WorkspaceTopbar({
             <input
               id={searchId}
               type="search"
-              placeholder={config.searchPlaceholder}
+              placeholder={t(config.searchPlaceholder)}
               className="h-10 w-full rounded-lg border border-line bg-canvas pl-9 pr-3 text-sm text-ink placeholder:text-ink-faint transition-colors focus:border-teal focus:bg-surface focus:outline-none focus:ring-2 focus:ring-teal/20"
             />
           </div>
         </form>
 
         <div className="flex items-center gap-1 sm:gap-2 lg:ml-auto">
+          <LanguageSwitcher compact />
           {actions}
           {assistant && <AssistantButton assistant={assistant} compact />}
 
           {config.notificationsSlug && (
             <Link
               href={workspaceHref(base, config.notificationsSlug)}
-              aria-label="Notifications"
+              aria-label={t("Notifications")}
               className={`${iconButton} relative`}
             >
               <Bell className="size-5" aria-hidden />

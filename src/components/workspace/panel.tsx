@@ -1,8 +1,12 @@
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
+import { T } from "@/i18n/client";
 import { focusRing } from "./styles";
 
-/** A titled card section on a workspace page, with an optional "view all" link. */
+/**
+ * A titled card section on a workspace page, with an optional "view all" link.
+ * Translates its title, description and link label.
+ */
 export function Panel({
   title,
   description,
@@ -18,6 +22,7 @@ export function Panel({
   className?: string;
   bodyClassName?: string;
 }) {
+  // From the English title, so the id stays stable and ASCII in every language.
   const headingId = `panel-${title.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`;
 
   return (
@@ -28,16 +33,20 @@ export function Panel({
       <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2 px-5 pt-5 sm:px-6">
         <div className="min-w-0">
           <h2 id={headingId} className="text-base font-semibold tracking-tight text-ink">
-            {title}
+            <T>{title}</T>
           </h2>
-          {description && <p className="mt-0.5 text-sm text-ink-muted">{description}</p>}
+          {description && (
+            <p className="mt-0.5 text-sm text-ink-muted">
+              <T>{description}</T>
+            </p>
+          )}
         </div>
         {action && (
           <Link
             href={action.href}
             className={`inline-flex items-center gap-1 rounded-md text-sm font-semibold text-teal hover:text-ink ${focusRing}`}
           >
-            {action.label}
+            <T>{action.label}</T>
             <ArrowRight className="size-4" aria-hidden />
           </Link>
         )}

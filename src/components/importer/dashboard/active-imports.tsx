@@ -3,13 +3,14 @@ import { ArrowRight } from "lucide-react";
 import { formatDayMonth } from "@/lib/format";
 import { importerHref } from "@/lib/importer-nav";
 import { stageLabel, type ActiveImport } from "@/lib/importer-dashboard-data";
+import { getT } from "@/i18n/server";
 import { focusRing } from "../styles";
 import { ImportId, Panel, RouteLabel, StatusBadge } from "./dashboard-ui";
 
 // Shipment detail pages don't exist yet; rows open the shipments section.
 const SHIPMENTS_HREF = importerHref("shipments");
 
-export function ActiveImports({
+export async function ActiveImports({
   imports,
   total,
   className = "",
@@ -18,18 +19,20 @@ export function ActiveImports({
   total: number;
   className?: string;
 }) {
+  const t = await getT();
+
   return (
     <Panel
       id="active-imports"
       title="Active Imports"
-      description={`${imports.length} most recently updated of ${total}`}
+      description={t("{shown} most recently updated of {total}", { shown: imports.length, total })}
       className={className}
       action={
         <Link
           href={SHIPMENTS_HREF}
           className={`inline-flex shrink-0 items-center gap-1 rounded-md text-sm font-semibold text-teal hover:underline ${focusRing}`}
         >
-          View all shipments
+          {t("View all shipments")}
           <ArrowRight className="size-4" aria-hidden />
         </Link>
       }
@@ -39,13 +42,13 @@ export function ActiveImports({
         <table className="w-full text-left text-sm">
           <thead>
             <tr className="border-y border-line bg-canvas/60 text-xs font-medium text-ink-muted">
-              <th scope="col" className="py-2.5 pl-6 pr-3 font-medium">Import</th>
-              <th scope="col" className="px-3 py-2.5 font-medium">Supplier</th>
-              <th scope="col" className="px-3 py-2.5 font-medium">Route</th>
-              <th scope="col" className="px-3 py-2.5 font-medium">ETA</th>
-              <th scope="col" className="px-3 py-2.5 font-medium">Stage</th>
-              <th scope="col" className="px-3 py-2.5 font-medium">Status</th>
-              <th scope="col" className="py-2.5 pl-3 pr-6 font-medium">Next Action</th>
+              <th scope="col" className="py-2.5 pl-6 pr-3 font-medium">{t("Import")}</th>
+              <th scope="col" className="px-3 py-2.5 font-medium">{t("Supplier")}</th>
+              <th scope="col" className="px-3 py-2.5 font-medium">{t("Route")}</th>
+              <th scope="col" className="px-3 py-2.5 font-medium">{t("ETA")}</th>
+              <th scope="col" className="px-3 py-2.5 font-medium">{t("Stage")}</th>
+              <th scope="col" className="px-3 py-2.5 font-medium">{t("Status")}</th>
+              <th scope="col" className="py-2.5 pl-3 pr-6 font-medium">{t("Next Action")}</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-line">
@@ -70,7 +73,7 @@ export function ActiveImports({
                 <td className="whitespace-nowrap px-3 py-3.5 tabular-nums text-ink">
                   {formatDayMonth(imp.eta)}
                 </td>
-                <td className="px-3 py-3.5 text-ink-muted">{stageLabel(imp.stage)}</td>
+                <td className="px-3 py-3.5 text-ink-muted">{t(stageLabel(imp.stage))}</td>
                 <td className="px-3 py-3.5">
                   <StatusBadge status={imp.status} />
                 </td>
@@ -106,21 +109,21 @@ export function ActiveImports({
               </span>
               <span className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
                 <span className="col-span-2">
-                  <span className="block text-xs text-ink-faint">Route</span>
+                  <span className="block text-xs text-ink-faint">{t("Route")}</span>
                   <RouteLabel route={imp.route} className="text-ink" />
                 </span>
                 <span>
-                  <span className="block text-xs text-ink-faint">ETA</span>
+                  <span className="block text-xs text-ink-faint">{t("ETA")}</span>
                   <span className="tabular-nums text-ink">{formatDayMonth(imp.eta)}</span>
                 </span>
                 <span>
-                  <span className="block text-xs text-ink-faint">Stage</span>
-                  <span className="text-ink">{stageLabel(imp.stage)}</span>
+                  <span className="block text-xs text-ink-faint">{t("Stage")}</span>
+                  <span className="text-ink">{t(stageLabel(imp.stage))}</span>
                 </span>
               </span>
               <span className="mt-3 flex items-center justify-between gap-2 border-t border-line pt-3 text-sm text-ink-muted">
                 <span>
-                  <span className="sr-only">Next action: </span>
+                  <span className="sr-only">{t("Next action:")} </span>
                   {imp.nextAction}
                 </span>
                 <ArrowRight aria-hidden className="size-4 shrink-0 text-ink-faint" />

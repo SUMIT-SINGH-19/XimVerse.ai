@@ -1,9 +1,12 @@
 import { ArrowRight } from "lucide-react";
 import { Panel } from "@/components/workspace/panel";
+import { getT } from "@/i18n/server";
 import { exporterHref } from "@/lib/exporter-nav";
 import type { ActiveOrder } from "@/lib/exporter-dashboard";
 
-export function ActiveOrdersPanel({ orders }: { orders: readonly ActiveOrder[] }) {
+export async function ActiveOrdersPanel({ orders }: { orders: readonly ActiveOrder[] }) {
+  const t = await getT();
+
   return (
     <Panel title="Active Orders" action={{ label: "View all", href: exporterHref("orders") }}>
       <ul className="divide-y divide-line">
@@ -14,22 +17,22 @@ export function ActiveOrdersPanel({ orders }: { orders: readonly ActiveOrder[] }
                 <p className="font-mono text-xs text-ink-muted"><a href={exporterHref(`orders/${order.orderId}`)} className="hover:text-teal">{order.orderId}</a></p>
                 <p className="mt-0.5 flex items-center gap-1.5 text-sm font-semibold text-ink">
                   {order.product}
-                  <ArrowRight className="size-3.5 text-ink-faint" aria-label="to" />
+                  <ArrowRight className="size-3.5 text-ink-faint" aria-label={t("to")} />
                   {order.destinationCountry}
                 </p>
               </div>
               <p className="text-sm text-ink-muted">
-                <span className="font-medium text-ink">{order.stage}</span>
+                <span className="font-medium text-ink">{t(order.stage)}</span>
                 <span className="ml-2 font-semibold tabular-nums text-teal">{order.progress}%</span>
               </p>
             </div>
             <div
               role="progressbar"
-              aria-label={`${order.orderId} progress`}
+              aria-label={t("{id} progress", { id: order.orderId })}
               aria-valuemin={0}
               aria-valuemax={100}
               aria-valuenow={order.progress}
-              aria-valuetext={`${order.progress}% · ${order.stage}`}
+              aria-valuetext={`${order.progress}% · ${t(order.stage)}`}
               className="mt-2.5 h-1.5 overflow-hidden rounded-full bg-teal-soft"
             >
               <div className="h-full rounded-full bg-teal" style={{ width: `${order.progress}%` }} />

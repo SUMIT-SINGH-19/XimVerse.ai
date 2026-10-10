@@ -1,5 +1,6 @@
 import { CircleAlert, CircleCheck, Clock } from "lucide-react";
 import { StatusPill, type PillTone } from "@/components/workspace/status-pill";
+import { T } from "@/i18n/client";
 import {
   deadlineInfo,
   OPPORTUNITY_STATUS_LABEL,
@@ -35,7 +36,7 @@ export function MatchScore({ score, size = "md" }: { score: number; size?: "md" 
         <span className="block h-full rounded-full bg-teal" style={{ width: `${score}%` }} />
       </span>
       <span className={`whitespace-nowrap font-semibold text-teal ${size === "lg" ? "text-base" : "text-sm"}`}>
-        {score}% Match
+        <T vars={{ score }}>{"{score}% Match"}</T>
       </span>
     </span>
   );

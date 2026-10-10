@@ -1,5 +1,6 @@
 import { FileCheck, FileX, MessageSquareWarning, ShieldAlert, type LucideIcon } from "lucide-react";
 import type { ComplianceHealthItem, HealthTone } from "@/lib/importer-dashboard-data";
+import { getT } from "@/i18n/server";
 import { Panel } from "./dashboard-ui";
 
 const TONE: Record<HealthTone, { bar: string; icon: string }> = {
@@ -15,13 +16,14 @@ const ICONS: Record<string, LucideIcon> = {
   customs: MessageSquareWarning,
 };
 
-export function ComplianceHealth({
+export async function ComplianceHealth({
   items,
   className = "",
 }: {
   items: readonly ComplianceHealthItem[];
   className?: string;
 }) {
+  const t = await getT();
   const total = items.reduce((sum, i) => sum + i.shipments, 0);
 
   return (
@@ -44,10 +46,10 @@ export function ComplianceHealth({
             return (
               <li key={item.id} className="flex items-center gap-3 text-sm">
                 <Icon aria-hidden className={`size-4 shrink-0 ${TONE[item.tone].icon}`} />
-                <span className="flex-1 text-ink-muted">{item.label}</span>
+                <span className="flex-1 text-ink-muted">{t(item.label)}</span>
                 <span className="font-semibold tabular-nums text-ink">
                   {item.shipments}
-                  <span className="sr-only"> {item.shipments === 1 ? "shipment" : "shipments"}</span>
+                  <span className="sr-only"> {item.shipments === 1 ? t("shipment") : t("shipments")}</span>
                 </span>
               </li>
             );

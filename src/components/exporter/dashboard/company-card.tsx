@@ -1,4 +1,5 @@
 import { BadgeCheck, MapPin } from "lucide-react";
+import { T } from "@/i18n/client";
 import type { WorkspaceIdentity } from "@/lib/workspace-nav";
 
 /** The signed-in exporter's company, shown beside the dashboard title. */
@@ -18,7 +19,7 @@ export function CompanyCard({ identity }: { identity: WorkspaceIdentity }) {
           {identity.badge && (
             <span className="inline-flex items-center gap-1 font-medium text-teal">
               <BadgeCheck className="size-3.5" aria-hidden />
-              {identity.badge}
+              <T>{identity.badge}</T>
             </span>
           )}
         </p>

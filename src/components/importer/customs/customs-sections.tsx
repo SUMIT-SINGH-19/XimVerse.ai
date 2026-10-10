@@ -39,6 +39,9 @@ const smallButton = `inline-flex h-9 items-center gap-1.5 rounded-lg border bord
 
 type Say = (message: string) => void;
 
+/** Moves focus once the next render is on screen (open → first field, close → opener). */
+const focusSoon = (id: string) => requestAnimationFrame(() => document.getElementById(id)?.focus());
+
 function TextInput({
   id,
   label,
@@ -86,6 +89,11 @@ export function DeclarationSection({ view, onMessage }: { view: CustomsCaseView;
     setDraft(Object.fromEntries(editable.map((f) => [f.manual!, view.manual[f.manual!] ?? ""])));
     setErrors({});
     setEditing(true);
+    focusSoon(`decl-${editable[0]?.manual}`);
+  };
+  const close = () => {
+    setEditing(false);
+    focusSoon("decl-edit-button");
   };
 
   return (
@@ -118,7 +126,7 @@ export function DeclarationSection({ view, onMessage }: { view: CustomsCaseView;
         </dl>
 
         {canEditCase(view) && editable.length > 0 && !editing && (
-          <button type="button" onClick={open} className={`${smallButton} mt-5`}>
+          <button type="button" id="decl-edit-button" onClick={open} className={`${smallButton} mt-5`}>
             <Pencil aria-hidden className="size-3.5" />
             Edit Customs Fields
           </button>
@@ -128,7 +136,7 @@ export function DeclarationSection({ view, onMessage }: { view: CustomsCaseView;
             aria-labelledby="decl-edit-heading"
             noValidate
             onKeyDown={(e) => {
-              if (e.key === "Escape") setEditing(false);
+              if (e.key === "Escape") close();
             }}
             onSubmit={(e) => {
               e.preventDefault();
@@ -137,7 +145,7 @@ export function DeclarationSection({ view, onMessage }: { view: CustomsCaseView;
               if (Object.keys(errs).length) return;
               const err = updateDeclaration(view, draft);
               if (err) return onMessage(err);
-              setEditing(false);
+              close();
               onMessage("Declaration draft updated.");
             }}
             className="mt-5 rounded-xl border border-line p-4"
@@ -162,7 +170,7 @@ export function DeclarationSection({ view, onMessage }: { view: CustomsCaseView;
             </div>
             <div className="mt-4 flex gap-2">
               <button type="submit" className={`${primaryButton} h-10`}>Save Fields</button>
-              <button type="button" onClick={() => setEditing(false)} className={`${ghostButton} h-10`}>Cancel</button>
+              <button type="button" onClick={close} className={`${ghostButton} h-10`}>Cancel</button>
             </div>
           </form>
         )}
@@ -245,6 +253,11 @@ export function ChaSection({ view, onMessage }: { view: CustomsCaseView; onMessa
     setDraft({ company: "", contactPerson: "", email: "", phone: "", licenseRef: "", notes: "", ...cha });
     setErrors({});
     setEditing(true);
+    focusSoon("cha-company");
+  };
+  const close = () => {
+    setEditing(false);
+    focusSoon("cha-edit-button");
   };
 
   return (
@@ -281,7 +294,7 @@ export function ChaSection({ view, onMessage }: { view: CustomsCaseView; onMessa
         )}
 
         {canEditCase(view) && !editing && (
-          <button type="button" onClick={open} className={`${smallButton} mt-4`}>
+          <button type="button" id="cha-edit-button" onClick={open} className={`${smallButton} mt-4`}>
             {cha ? "Edit Assignment" : "Assign Customs Broker"}
           </button>
         )}
@@ -290,7 +303,7 @@ export function ChaSection({ view, onMessage }: { view: CustomsCaseView; onMessa
             aria-labelledby="cha-form-heading"
             noValidate
             onKeyDown={(e) => {
-              if (e.key === "Escape") setEditing(false);
+              if (e.key === "Escape") close();
             }}
             onSubmit={(e) => {
               e.preventDefault();
@@ -299,7 +312,7 @@ export function ChaSection({ view, onMessage }: { view: CustomsCaseView; onMessa
               if (Object.keys(errs).length) return;
               const err = assignCha(view, draft);
               if (err) return onMessage(err);
-              setEditing(false);
+              close();
               onMessage("Customs broker assignment recorded.");
             }}
             className="mt-4 space-y-3 rounded-xl border border-line p-4"
@@ -316,7 +329,7 @@ export function ChaSection({ view, onMessage }: { view: CustomsCaseView; onMessa
             <p className="text-xs text-ink-faint">Recorded in XimVerse only. This doesn&apos;t create a broker account, send an invitation or verify the broker.</p>
             <div className="flex gap-2">
               <button type="submit" className={`${primaryButton} h-10`}>Save Assignment</button>
-              <button type="button" onClick={() => setEditing(false)} className={`${ghostButton} h-10`}>Cancel</button>
+              <button type="button" onClick={close} className={`${ghostButton} h-10`}>Cancel</button>
             </div>
           </form>
         )}
@@ -434,27 +447,29 @@ export function HandoffSection({ view, onMessage }: { view: CustomsCaseView; onM
         <HandoffPreview view={view} />
       </Dialog>
 
-      <Dialog open={confirming} onClose={() => setConfirming(false)} title="Record Handoff to CHA" id="handoff-confirm">
-        <form
-          onSubmit={(e) => {
-            e.preventDefault();
-            const err = recordHandoff(view, note);
-            if (err) return setError(err);
-            setConfirming(false);
-            onMessage(`Handoff to ${view.cha?.company} recorded. Nothing was sent.`);
-          }}
-        >
-          <p className="text-sm text-ink">{HANDOFF_CONFIRMATION}</p>
-          <p className="mt-2 text-sm text-ink-muted">Broker: <span className="font-medium text-ink">{view.cha?.company}</span> · Declaration version {view.declarationVersion} · {docRefs.length} document references</p>
-          <label htmlFor="handoff-note" className="mt-4 block text-xs font-medium text-ink-muted">Note for the broker <span className="font-normal text-ink-faint">Optional</span></label>
-          <textarea id="handoff-note" rows={3} value={note} onChange={(e) => { setNote(e.target.value); setError(""); }} className={`${inputClass} h-auto py-2`} />
-          {error && <p role="alert" className="mt-1 text-sm font-medium text-orange">{error}</p>}
-          <div className="mt-4 flex flex-wrap gap-2">
-            <button type="submit" className={`${primaryButton} h-10`}>Record Handoff</button>
-            <button type="button" onClick={() => setConfirming(false)} className={`${ghostButton} h-10`}>Cancel</button>
-          </div>
-        </form>
-      </Dialog>
+      {canEditCase(view) && (
+        <Dialog open={confirming} onClose={() => setConfirming(false)} title="Record Handoff to CHA" id="handoff-confirm">
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              const err = recordHandoff(view, note);
+              if (err) return setError(err);
+              setConfirming(false);
+              onMessage(`Handoff to ${view.cha?.company} recorded. Nothing was sent.`);
+            }}
+          >
+            <p className="text-sm text-ink">{HANDOFF_CONFIRMATION}</p>
+            <p className="mt-2 text-sm text-ink-muted">Broker: <span className="font-medium text-ink">{view.cha?.company}</span> · Declaration version {view.declarationVersion} · {docRefs.length} document references</p>
+            <label htmlFor="handoff-note" className="mt-4 block text-xs font-medium text-ink-muted">Note for the broker <span className="font-normal text-ink-faint">Optional</span></label>
+            <textarea id="handoff-note" rows={3} value={note} onChange={(e) => { setNote(e.target.value); setError(""); }} className={`${inputClass} h-auto py-2`} />
+            {error && <p role="alert" className="mt-1 text-sm font-medium text-orange">{error}</p>}
+            <div className="mt-4 flex flex-wrap gap-2">
+              <button type="submit" className={`${primaryButton} h-10`}>Record Handoff</button>
+              <button type="button" onClick={() => setConfirming(false)} className={`${ghostButton} h-10`}>Cancel</button>
+            </div>
+          </form>
+        </Dialog>
+      )}
     </Panel>
   );
 }
@@ -530,7 +545,17 @@ export function ClarificationsSection({ view, onMessage }: { view: CustomsCaseVi
                 {c.resolvedAt && <p className="mt-1 text-xs text-ink-faint">Resolved {formatDate(c.resolvedAt)}</p>}
 
                 {editable && c.status === "open" && responding !== c.id && (
-                  <button type="button" onClick={() => { setResponding(c.id); setResponse(""); setResponseError(""); }} className={`${smallButton} mt-2`}>
+                  <button
+                    type="button"
+                    id={`respond-button-${c.id}`}
+                    onClick={() => {
+                      setResponding(c.id);
+                      setResponse("");
+                      setResponseError("");
+                      focusSoon(`respond-${c.id}`);
+                    }}
+                    className={`${smallButton} mt-2`}
+                  >
                     Respond<span className="sr-only"> to {c.id}</span>
                   </button>
                 )}
@@ -543,7 +568,10 @@ export function ClarificationsSection({ view, onMessage }: { view: CustomsCaseVi
                   <form
                     className="mt-2 space-y-2"
                     onKeyDown={(e) => {
-                      if (e.key === "Escape") setResponding(null);
+                      if (e.key === "Escape") {
+                        setResponding(null);
+                        focusSoon(`respond-button-${c.id}`);
+                      }
                     }}
                     onSubmit={(e) => {
                       e.preventDefault();
@@ -559,7 +587,7 @@ export function ClarificationsSection({ view, onMessage }: { view: CustomsCaseVi
                     <p className="text-xs text-ink-faint">Recorded locally — no message was sent.</p>
                     <div className="flex gap-2">
                       <button type="submit" className={`${primaryButton} h-9 px-3`}>Save Response</button>
-                      <button type="button" onClick={() => setResponding(null)} className={`${ghostButton} h-9`}>Cancel</button>
+                      <button type="button" onClick={() => { setResponding(null); focusSoon(`respond-button-${c.id}`); }} className={`${ghostButton} h-9`}>Cancel</button>
                     </div>
                   </form>
                 )}
@@ -569,7 +597,7 @@ export function ClarificationsSection({ view, onMessage }: { view: CustomsCaseVi
         )}
 
         {canRecordClarification(view) && !recording && (
-          <button type="button" onClick={() => { setRecording(true); setQuestion(""); setError(""); }} className={`${smallButton} mt-3`}>
+          <button type="button" id="clar-record-button" onClick={() => { setRecording(true); setQuestion(""); setError(""); focusSoon("clar-example"); }} className={`${smallButton} mt-3`}>
             <FlaskConical aria-hidden className="size-3.5 text-orange" />
             Record CHA Clarification {demoTag}
           </button>
@@ -579,7 +607,10 @@ export function ClarificationsSection({ view, onMessage }: { view: CustomsCaseVi
             aria-labelledby="clar-form-heading"
             className="mt-3 space-y-2 rounded-xl border border-line p-4"
             onKeyDown={(e) => {
-              if (e.key === "Escape") setRecording(false);
+              if (e.key === "Escape") {
+                setRecording(false);
+                focusSoon("clar-record-button");
+              }
             }}
             onSubmit={(e) => {
               e.preventDefault();
@@ -601,7 +632,7 @@ export function ClarificationsSection({ view, onMessage }: { view: CustomsCaseVi
             {error && <p role="alert" className="text-xs font-medium text-orange">{error}</p>}
             <div className="flex gap-2">
               <button type="submit" className={`${primaryButton} h-9 px-3`}>Record Clarification</button>
-              <button type="button" onClick={() => setRecording(false)} className={`${ghostButton} h-9`}>Cancel</button>
+              <button type="button" onClick={() => { setRecording(false); focusSoon("clar-record-button"); }} className={`${ghostButton} h-9`}>Cancel</button>
             </div>
           </form>
         )}

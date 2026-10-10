@@ -1,14 +1,16 @@
 import { IMPORT_STAGES, type ImportStage } from "@/lib/importer-dashboard-data";
+import { getT } from "@/i18n/server";
 import { Panel } from "./dashboard-ui";
 
 /** How many active imports sit at each stage of the import lifecycle. */
-export function ImportJourney({
+export async function ImportJourney({
   pipeline,
   className = "",
 }: {
   pipeline: Record<ImportStage, number>;
   className?: string;
 }) {
+  const t = await getT();
   const busiest = Math.max(...IMPORT_STAGES.map((s) => pipeline[s.id]));
 
   return (
@@ -46,7 +48,7 @@ export function ImportJourney({
                 }`}
               />
               <span className="flex flex-1 items-baseline justify-between gap-3 md:mt-3 md:flex-col md:items-start md:gap-0.5">
-                <span className={`text-sm ${occupied ? "text-ink" : "text-ink-faint"}`}>{stage.label}</span>
+                <span className={`text-sm ${occupied ? "text-ink" : "text-ink-faint"}`}>{t(stage.label)}</span>
                 <span
                   className={`text-lg font-semibold tabular-nums leading-none md:order-first md:text-xl ${
                     occupied ? "text-ink" : "text-ink-faint"
@@ -54,7 +56,7 @@ export function ImportJourney({
                 >
                   <span aria-hidden>{occupied ? count : "–"}</span>
                   <span className="sr-only">
-                    {count} {count === 1 ? "import" : "imports"}
+                    {count} {count === 1 ? t("import") : t("imports")}
                   </span>
                 </span>
               </span>

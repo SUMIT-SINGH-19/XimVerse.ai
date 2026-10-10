@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Sparkles } from "lucide-react";
+import { T } from "@/i18n/client";
 import type { WorkspaceAssistant } from "@/lib/workspace-nav";
 import { focusRing } from "./styles";
 
@@ -21,16 +22,18 @@ export function AssistantButton({
   const content = (
     <>
       <Sparkles className="size-4" aria-hidden />
-      <span className={compact ? "hidden sm:inline" : undefined}>{assistant.label}</span>
+      <span className={compact ? "sr-only sm:not-sr-only" : undefined}>
+        <T>{assistant.label}</T>
+      </span>
     </>
   );
 
   return assistant.href ? (
-    <Link href={assistant.href} aria-label={assistant.label} className={classes}>
+    <Link href={assistant.href} className={classes}>
       {content}
     </Link>
   ) : (
-    <button type="button" aria-label={assistant.label} className={classes}>
+    <button type="button" className={classes}>
       {content}
     </button>
   );

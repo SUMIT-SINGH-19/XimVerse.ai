@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Panel } from "@/components/workspace/panel";
 import { focusRing } from "@/components/workspace/styles";
 import { QuotationStatusPill } from "@/components/exporter/quotations/quotation-ui";
+import { getT } from "@/i18n/server";
 import { exporterHref } from "@/lib/exporter-nav";
 import { formatDate } from "@/lib/exporter-dashboard";
 import { UNIT_SHORT } from "@/lib/exporter-opportunities";
@@ -12,7 +13,9 @@ const th = "px-4 py-2.5 text-left text-xs font-semibold uppercase tracking-[0.08
 const td = "whitespace-nowrap px-4 py-3 first:pl-6 last:pr-6";
 
 /** Latest quotations, from the same records My Quotations shows. */
-export function RecentQuotationsPanel({ rows }: { rows: readonly PipelineRow[] }) {
+export async function RecentQuotationsPanel({ rows }: { rows: readonly PipelineRow[] }) {
+  const t = await getT();
+
   return (
     <Panel
       title="Recent Quotations"
@@ -23,11 +26,11 @@ export function RecentQuotationsPanel({ rows }: { rows: readonly PipelineRow[] }
         <table className="w-full min-w-[34rem] text-sm">
           <thead className="border-y border-line bg-canvas/60">
             <tr>
-              <th scope="col" className={th}>Quotation</th>
-              <th scope="col" className={th}>Product / Destination</th>
-              <th scope="col" className={`${th} text-right!`}>Quoted Price / Qty</th>
-              <th scope="col" className={th}>Submitted</th>
-              <th scope="col" className={th}>Status</th>
+              <th scope="col" className={th}>{t("Quotation")}</th>
+              <th scope="col" className={th}>{t("Product / Destination")}</th>
+              <th scope="col" className={`${th} text-right!`}>{t("Quoted Price / Qty")}</th>
+              <th scope="col" className={th}>{t("Submitted")}</th>
+              <th scope="col" className={th}>{t("Status")}</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-line">

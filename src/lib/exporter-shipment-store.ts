@@ -21,6 +21,7 @@ import {
   cargoComplete,
   containerComplete,
   nextShipmentId,
+  OPEN_CUSTOMS_STATES,
   orderStateWithShipments,
   SEEDED_SHIPMENTS,
   shipmentEligibility,
@@ -38,6 +39,7 @@ import {
   type ShipmentEvent,
   type ShipmentRoute,
   type ShippingInstructions,
+  type VesselDetails,
 } from "./exporter-shipments";
 
 export const SHIPMENTS_KEY = "ximverse:exporter:shipments";
@@ -220,9 +222,11 @@ export function updateContainer(id: string, container: Partial<ContainerDetails>
   return append(id, { type: "container-updated", by: "supplier", container });
 }
 
-export function updateVessel(id: string, name?: string, voyage?: string): ActionResult {
-  if (!name && !voyage) return fail("Enter a vessel / flight or voyage");
-  return append(id, { type: "vessel-updated", by: "supplier", vessel: { ...(name ? { name } : {}), ...(voyage ? { voyage } : {}) } });
+/** Vessel / flight, voyage and tracking reference — recorded by hand (no tracking API). */
+export function updateVessel(id: string, vessel: Partial<VesselDetails>): ActionResult {
+  const entries = Object.entries(vessel).filter(([, v]) => typeof v === "string" && v.trim());
+  if (!entries.length) return fail("Enter a vessel / flight, voyage or tracking reference");
+  return append(id, { type: "vessel-updated", by: "supplier", vessel: Object.fromEntries(entries.map(([k, v]) => [k, (v as string).trim()])) });
 }
 
 export function updateInstructions(id: string, instructions: Partial<ShippingInstructions>): ActionResult {
@@ -260,13 +264,14 @@ export function advanceShippingBill(id: string): ActionResult {
   const doc = (type: string) => c.os!.documents.find((d) => d.type === type);
   const ready = (type: string) => ["ready", "verified"].includes(doc(type)?.status ?? "");
   if (next === "cha-review" && !c.st.cha) return fail("Assign a CHA before CHA review");
+  if (next === "cha-review" && !c.st.dossierShared) return fail("Share the dossier with the CHA first");
   if (next === "ready-for-filing") {
     if (c.st.instructionsStatus !== "ready") return fail("Shipping Instructions must be ready");
     if (!cargoComplete(c.st)) return fail("Complete the cargo details first");
     if (usesContainers(c.sh.route) && !containerComplete(c.st)) return fail("Complete the container details first");
     if (!ready("commercial-invoice") || !ready("packing-list")) return fail("Commercial Invoice and Packing List must be ready on the order");
   }
-  if (next === "leo-received" && (c.st.customs === "query-received" || c.st.customs === "response-preparing")) return fail("Resolve the customs query first");
+  if (next === "leo-received" && OPEN_CUSTOMS_STATES.includes(c.st.customs)) return fail("Resolve the customs query or examination first");
   return append(id, { type: "shipping-bill-updated", by: next === "data-preparing" ? "supplier" : "customs-broker", shippingBill: next });
 }
 
@@ -289,8 +294,8 @@ export function advanceTransportDocument(id: string): ActionResult {
   return append(id, { type: "transport-document-updated", by: "carrier", transportDocument: next });
 }
 
-/** Physical milestones, in order, each once. */
-export function recordMilestone(id: string, milestone: PhysicalMilestone): ActionResult {
+/** Physical milestones, in order, each once. `note` carries e.g. the ICD / CFS / terminal. */
+export function recordMilestone(id: string, milestone: PhysicalMilestone, note?: string): ActionResult {
   const c = current(id);
   if (!c) return fail("Shipment not found");
   const m = c.st.milestones;
@@ -303,6 +308,7 @@ export function recordMilestone(id: string, milestone: PhysicalMilestone): Actio
       break;
     case "loaded":
       if (!leo) return fail("LEO is required before loading");
+      if (c.sh.route.mode === "sea" && !m["gate-in"]) return fail("Record gate-in first");
       break;
     case "departed":
       if (!leo) return fail("LEO is required before departure");
@@ -311,9 +317,28 @@ export function recordMilestone(id: string, milestone: PhysicalMilestone): Actio
     case "arrived":
       if (!m.departed) return fail("Record departure first");
       break;
+    case "clearance":
     case "delivered":
       if (!m.arrived) return fail("Record arrival first");
       break;
   }
-  return append(id, { type: "milestone", by: milestone === "loaded" || milestone === "departed" || milestone === "arrived" ? "carrier" : "supplier", milestone });
+  return append(id, {
+    type: "milestone",
+    by: milestone === "loaded" || milestone === "departed" || milestone === "arrived" ? "carrier" : "supplier",
+    milestone,
+    ...(note?.trim() ? { note: note.trim() } : {}),
+  });
+}
+
+/**
+ * Cancels a shipment and releases its allocation back to the order. Only
+ * before the shipping bill is filed and before any cargo movement.
+ */
+export function cancelShipment(id: string, reason: string): ActionResult {
+  const c = current(id);
+  if (!c) return fail("Shipment not found");
+  if (!reason.trim()) return fail("Give a reason for cancelling");
+  if (shippingBillIndex(c.st.shippingBill) >= shippingBillIndex("filed")) return fail("The shipping bill is filed — cancel it with the CHA first (demo)");
+  if (Object.keys(c.st.milestones).length) return fail("Cargo has started moving — it can't be cancelled here");
+  return append(id, { type: "cancelled", by: "supplier", note: reason.trim() });
 }

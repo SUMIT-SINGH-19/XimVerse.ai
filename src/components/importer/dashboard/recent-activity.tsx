@@ -1,5 +1,6 @@
 import { formatTimeAgo } from "@/lib/format";
 import type { ActivityActor, ActivityEvent } from "@/lib/importer-dashboard-data";
+import { getT } from "@/i18n/server";
 import { ImportId, Panel } from "./dashboard-ui";
 
 const ACTOR_DOT: Record<ActivityActor, string> = {
@@ -10,7 +11,7 @@ const ACTOR_DOT: Record<ActivityActor, string> = {
 };
 
 /** Latest events across imports; will grow into the audit/activity stream. */
-export function RecentActivity({
+export async function RecentActivity({
   events,
   asOf,
   className = "",
@@ -19,6 +20,8 @@ export function RecentActivity({
   asOf: string;
   className?: string;
 }) {
+  const t = await getT();
+
   return (
     <Panel id="recent-activity" title="Recent Activity" className={className}>
       <ol className="mt-4 px-5 pb-5 sm:px-6">
@@ -32,7 +35,7 @@ export function RecentActivity({
               <p className="text-sm text-ink">{ev.message}</p>
               <p className="mt-0.5 flex flex-wrap gap-x-2 text-xs text-ink-faint">
                 <ImportId id={ev.importId} className="text-xs! text-ink-muted" />
-                <time dateTime={ev.at}>{formatTimeAgo(ev.at, asOf)}</time>
+                <time dateTime={ev.at}>{formatTimeAgo(ev.at, asOf, t)}</time>
               </p>
             </div>
           </li>

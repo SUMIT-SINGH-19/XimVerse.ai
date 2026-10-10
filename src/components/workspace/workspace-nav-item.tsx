@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useT } from "@/i18n/client";
 import { isNavItemActive, workspaceHref, type WorkspaceNavItem as NavItem } from "@/lib/workspace-nav";
 import { focusRing } from "./styles";
 
@@ -14,6 +15,7 @@ export function WorkspaceNavItem({
   item: NavItem;
   onNavigate?: () => void;
 }) {
+  const t = useT();
   const pathname = usePathname();
   const href = workspaceHref(base, item.slug);
   const active = isNavItemActive(base, pathname, href);
@@ -31,7 +33,7 @@ export function WorkspaceNavItem({
         aria-hidden
         className={`size-4.5 shrink-0 ${active ? "text-orange-soft" : "text-ink-faint group-hover:text-teal"}`}
       />
-      <span className="truncate">{item.label}</span>
+      <span className="truncate">{t(item.label)}</span>
       {active && <span aria-hidden className="ml-auto size-1.5 shrink-0 rounded-full bg-orange" />}
     </Link>
   );

@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { X } from "lucide-react";
+import { useT } from "@/i18n/client";
 import type { WorkspaceConfig } from "@/lib/workspace-nav";
 import { WorkspaceSidebar } from "./workspace-sidebar";
 import { WorkspaceTopbar } from "./workspace-topbar";
@@ -24,6 +25,7 @@ export function WorkspaceShell({
   topbarActions?: React.ReactNode;
   children: React.ReactNode;
 }) {
+  const t = useT();
   const [menuOpen, setMenuOpen] = useState(false);
   const menuButtonRef = useRef<HTMLButtonElement>(null);
   const closeButtonRef = useRef<HTMLButtonElement>(null);
@@ -70,14 +72,14 @@ export function WorkspaceShell({
           <div
             role="dialog"
             aria-modal="true"
-            aria-label="Navigation"
+            aria-label={t("Navigation")}
             className="absolute inset-y-0 left-0 w-72 max-w-[85vw] bg-surface shadow-2xl motion-safe:animate-drawer-in"
           >
             <button
               ref={closeButtonRef}
               type="button"
               onClick={close}
-              aria-label="Close navigation"
+              aria-label={t("Close navigation")}
               className={`absolute right-3 top-4 z-10 grid size-9 place-items-center rounded-lg text-ink-muted hover:bg-teal-soft hover:text-ink ${focusRing}`}
             >
               <X className="size-5" aria-hidden />

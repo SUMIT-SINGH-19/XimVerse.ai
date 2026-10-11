@@ -160,6 +160,17 @@ export type ShipmentEventType =
   | "status-changed"
   | "customs-updated";
 
+/** Why a schedule changed — chosen by the user; XimVerse does not detect causes. */
+export const SCHEDULE_CHANGE_REASONS = [
+  "Carrier schedule change",
+  "Port congestion",
+  "Transshipment change",
+  "Weather delay",
+  "Operational delay",
+  "Other",
+] as const;
+export type ScheduleChangeReason = (typeof SCHEDULE_CHANGE_REASONS)[number];
+
 export interface ShipmentEvent {
   id: string;
   type: ShipmentEventType;
@@ -171,6 +182,8 @@ export interface ShipmentEvent {
   note?: string;
   booking?: { status: FreightBookingStatus; reference?: string; carrier?: string; forwarder?: string };
   schedule?: Partial<ShipmentSchedule>;
+  /** User-selected reason for a schedule change. */
+  reason?: ScheduleChangeReason;
   status?: ShipmentStatus;
   customs?: CustomsStatus;
 }

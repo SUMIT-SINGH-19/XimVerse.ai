@@ -590,6 +590,70 @@ export function containerComplete(st: ShipmentState): boolean {
   return Boolean(st.container.type && st.container.count && st.container.numbers && st.container.seals);
 }
 
+// ---------------------------------------------------------------------------
+// Prerequisites — the single source for what each step needs. The store
+// enforces them; the Documents Center explains them ("Why blocked?").
+// ---------------------------------------------------------------------------
+
+export interface Prerequisite {
+  key: string;
+  label: string;
+  done: boolean;
+  /** What is missing, when not done. */
+  detail?: string;
+  /** Imperative message used when an action is refused. */
+  fix: string;
+}
+
+/** Missing cargo fields, in plain words. */
+export function cargoMissing(st: ShipmentState): string[] {
+  const out: string[] = [];
+  if (!st.cargo.packages) out.push("number of packages");
+  if (!st.cargo.netWeightKg) out.push("net weight");
+  if (!st.cargo.grossWeightKg) out.push("gross weight");
+  return out;
+}
+
+const docReady = (os: OrderState, type: string) => isReady(os.documents.find((d) => d.type === type));
+
+/** What the shipping bill needs before it can move to `step`. Cumulative up to filing. */
+export function shippingBillPrerequisites(sh: ExporterShipment, st: ShipmentState, os: OrderState, step: ShippingBillStatus): Prerequisite[] {
+  const i = shippingBillIndex(step);
+  const out: Prerequisite[] = [];
+  if (i >= shippingBillIndex("cha-review") && i <= shippingBillIndex("ready-for-filing")) {
+    out.push({ key: "cha", label: "CHA assigned", done: Boolean(st.cha), detail: st.cha ? undefined : "CHA not assigned", fix: "Assign a CHA before CHA review" });
+    out.push({ key: "dossier", label: "Dossier shared with the CHA", done: st.dossierShared, detail: st.dossierShared ? undefined : "Dossier not shared", fix: "Share the dossier with the CHA first" });
+  }
+  if (step === "ready-for-filing") {
+    const missing = cargoMissing(st);
+    out.push({ key: "instructions", label: "Shipping Instructions ready", done: st.instructionsStatus === "ready", detail: st.instructionsStatus === "ready" ? undefined : `Shipping Instructions ${INSTRUCTIONS_STATUS_LABEL[st.instructionsStatus].toLowerCase()}`, fix: "Shipping Instructions must be ready" });
+    out.push({ key: "cargo", label: "Cargo details complete", done: missing.length === 0, detail: missing.length ? `${joinAnd(missing).replace(/^./, (c) => c.toUpperCase())} missing` : undefined, fix: "Complete the cargo details first" });
+    if (usesContainers(sh.route)) out.push({ key: "containers", label: "Container details complete", done: containerComplete(st), detail: containerComplete(st) ? undefined : "Container type, count, numbers or seals missing", fix: "Complete the container details first" });
+    out.push({ key: "invoice", label: "Commercial Invoice ready", done: docReady(os, "commercial-invoice"), detail: docReady(os, "commercial-invoice") ? undefined : "Commercial Invoice not ready on the order", fix: "Commercial Invoice and Packing List must be ready on the order" });
+    out.push({ key: "packing", label: "Packing List ready", done: docReady(os, "packing-list"), detail: docReady(os, "packing-list") ? undefined : "Packing List not ready on the order", fix: "Commercial Invoice and Packing List must be ready on the order" });
+  }
+  if (step === "leo-received") {
+    const open = OPEN_CUSTOMS_STATES.includes(st.customs);
+    out.push({ key: "customs", label: "No open customs query or examination", done: !open, detail: open ? `Customs: ${CUSTOMS_QUERY_LABEL[st.customs]}` : undefined, fix: "Resolve the customs query or examination first" });
+  }
+  return out;
+}
+
+/** What Shipping Instructions need before they can be marked ready. */
+export function instructionsPrerequisites(st: ShipmentState): Prerequisite[] {
+  const missing = cargoMissing(st);
+  return [
+    { key: "description", label: "Product description", done: Boolean(st.instructions.productDescription?.trim()), detail: "Product description missing", fix: "Add the product description" },
+    { key: "cargo", label: "Cargo details complete", done: missing.length === 0, detail: missing.length ? `${joinAnd(missing).replace(/^./, (c) => c.toUpperCase())} missing` : undefined, fix: "Complete packages, net and gross weight first" },
+  ];
+}
+
+/** What the BL / AWB needs before final issue. */
+export function transportDocumentPrerequisites(st: ShipmentState): Prerequisite[] {
+  const loaded = Boolean(st.milestones.loaded || st.milestones.departed);
+  return [{ key: "loaded", label: "Cargo loaded", done: loaded, detail: loaded ? undefined : "Cargo not yet loaded", fix: "Final issue comes after loading" }];
+}
+
 /** Readiness for the export-clearance workflow. */
 export function customsReadiness(sh: ExporterShipment, st: ShipmentState, os: OrderState): ReadinessItem[] {
   const doc = (type: string) => os.documents.find((d) => d.type === type);
@@ -926,10 +990,12 @@ function clearedAndLoaded(d: { prep: string; filed: string; leo: string; loaded:
 const QATAR_CARGO = (qty: number): CargoDetails => ({ packages: qty * 40, packageType: "Bags", netWeightKg: qty * 1000, grossWeightKg: qty * 1000 + qty * 5, marks: "SAE/HMD/GS" });
 
 export const SEEDED_SHIPMENTS: readonly ExporterShipment[] = [
-  // A — Preparing: forwarder and ETD set; no booking, customs not started. Partial (60 of 100 MT).
+  // A — Preparing: forwarder and ETD set; no booking; instructions in draft, shipping bill data being prepared. Partial (60 of 100 MT).
   seededShipment("SHP-2026-8101", "ORD-2026-8101", 60, t("2026-10-06", "09:00"), { portOfDischarge: "Jebel Ali, UAE" }, { packages: 2400, packageType: "Bags", netWeightKg: 60_000 }, [
     { type: "forwarder-assigned", at: t("2026-10-06", "10:00"), party: FORWARDER },
     { type: "schedule-updated", at: t("2026-10-06", "11:00"), schedule: { etd: "2026-10-13", eta: "2026-10-19" } },
+    { type: "instructions-updated", at: t("2026-10-06", "12:00"), instructions: { productDescription: "1121 Steam Basmati Rice in 25 kg PP bags" } },
+    { type: "shipping-bill-updated", at: t("2026-10-06", "13:00"), shippingBill: "data-preparing" },
   ]),
   // D — Delivered: the first 50 MT of the Qatar order.
   seededShipment("SHP-2026-8102", "ORD-2026-8102", 50, t("2026-09-23", "10:00"), {}, QATAR_CARGO(50), [

@@ -18,6 +18,7 @@ import {
   type CustomsStatus,
   type Shipment,
   type ShipmentCargo,
+  type ScheduleChangeReason,
   type ShipmentEvent,
   type ShipmentParties,
   type ShipmentRoute,
@@ -224,4 +225,33 @@ export function simulateCustomsClearance(shipmentId: string) {
  */
 export function recordCustomsProgress(shipmentId: string, customs: "filed" | "under-assessment" | "cleared") {
   append(shipmentId, { type: "customs-updated", by: "customs-broker", demo: true, customs, note: "Demo status — no Customs system is connected." });
+}
+
+/**
+ * Demo: records an external schedule change (new ETD and/or ETA) with a
+ * user-selected reason. Appended as a shipment schedule event, so the
+ * planned schedule and earlier updates are never overwritten. No carrier
+ * system is connected. Returns an error message when invalid.
+ */
+export function recordScheduleUpdate(
+  shipmentId: string,
+  change: { etd?: string; eta: string },
+  reason: ScheduleChangeReason,
+  note?: string,
+): string | undefined {
+  const sh = find(shipmentId);
+  if (!sh) return "Shipment not found.";
+  const st = shipmentState(sh);
+  if (["arrived", "customs", "delivered"].includes(st.status)) return "The shipment has already arrived; its schedule can no longer change.";
+  const departed = st.status === "in-transit";
+  const etd = departed ? st.schedule.etd : change.etd || st.schedule.etd;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(change.eta) || !/^\d{4}-\d{2}-\d{2}$/.test(etd)) return "Enter valid dates.";
+  if (!departed && etd < st.schedule.readyDate) return "ETD can't be before the cargo ready date.";
+  if (change.eta < etd) return "ETA must be on or after ETD.";
+  const schedule: Partial<ShipmentSchedule> = {};
+  if (etd !== st.schedule.etd) schedule.etd = etd;
+  if (change.eta !== st.schedule.eta) schedule.eta = change.eta;
+  if (Object.keys(schedule).length === 0) return "The new dates match the current schedule.";
+  if ((note ?? "").length > 300) return "Keep the note under 300 characters.";
+  append(shipmentId, { type: "schedule-updated", by: "importer", demo: true, schedule, reason, note: note?.trim() || undefined });
 }

@@ -18,13 +18,13 @@ import { negotiationNow } from "./exporter-negotiations";
 import { loadOrders } from "./exporter-order-store";
 import type { ExporterOrder } from "./exporter-orders";
 import {
-  cargoComplete,
-  containerComplete,
+  instructionsPrerequisites,
   nextShipmentId,
-  OPEN_CUSTOMS_STATES,
   orderStateWithShipments,
   SEEDED_SHIPMENTS,
   shipmentEligibility,
+  shippingBillPrerequisites,
+  transportDocumentPrerequisites,
   shipmentState,
   SHIPPING_BILL_STEPS,
   shippingBillIndex,
@@ -252,9 +252,9 @@ export function updateInstructions(id: string, instructions: Partial<ShippingIns
 export function markInstructionsReady(id: string): ActionResult {
   const c = current(id);
   if (!c) return fail("Shipment not found");
-  if (!c.st.instructions.productDescription?.trim()) return fail("Add the product description");
-  if (!cargoComplete(c.st)) return fail("Complete packages, net and gross weight first");
   if (c.st.instructionsStatus === "ready") return fail("Already ready");
+  const missing = instructionsPrerequisites(c.st).find((x) => !x.done);
+  if (missing) return fail(missing.fix);
   return append(id, { type: "instructions-ready", by: "supplier" });
 }
 
@@ -276,17 +276,8 @@ export function advanceShippingBill(id: string): ActionResult {
   const i = shippingBillIndex(c.st.shippingBill);
   const next = SHIPPING_BILL_STEPS[i + 1]?.id;
   if (!next) return fail("Shipping bill is complete");
-  const doc = (type: string) => c.os!.documents.find((d) => d.type === type);
-  const ready = (type: string) => ["ready", "verified"].includes(doc(type)?.status ?? "");
-  if (next === "cha-review" && !c.st.cha) return fail("Assign a CHA before CHA review");
-  if (next === "cha-review" && !c.st.dossierShared) return fail("Share the dossier with the CHA first");
-  if (next === "ready-for-filing") {
-    if (c.st.instructionsStatus !== "ready") return fail("Shipping Instructions must be ready");
-    if (!cargoComplete(c.st)) return fail("Complete the cargo details first");
-    if (usesContainers(c.sh.route) && !containerComplete(c.st)) return fail("Complete the container details first");
-    if (!ready("commercial-invoice") || !ready("packing-list")) return fail("Commercial Invoice and Packing List must be ready on the order");
-  }
-  if (next === "leo-received" && OPEN_CUSTOMS_STATES.includes(c.st.customs)) return fail("Resolve the customs query or examination first");
+  const missing = shippingBillPrerequisites(c.sh, c.st, c.os, next).find((x) => !x.done);
+  if (missing) return fail(missing.fix);
   return append(id, { type: "shipping-bill-updated", by: next === "data-preparing" ? "supplier" : "customs-broker", shippingBill: next });
 }
 
@@ -305,7 +296,8 @@ export function advanceTransportDocument(id: string): ActionResult {
   if (!c) return fail("Shipment not found");
   const next = TRANSPORT_DOCUMENT_STEPS[transportDocumentIndex(c.st.transportDocument) + 1]?.id;
   if (!next) return fail("Already final");
-  if (next === "final-issued" && !c.st.milestones.loaded && !c.st.milestones.departed) return fail("Final issue comes after loading");
+  const missing = next === "final-issued" ? transportDocumentPrerequisites(c.st).find((x) => !x.done) : undefined;
+  if (missing) return fail(missing.fix);
   return append(id, { type: "transport-document-updated", by: "carrier", transportDocument: next });
 }
 

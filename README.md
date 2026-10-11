@@ -50,4 +50,5 @@ src/
     config.ts          environment configuration
     api.ts             apiFetch() — the single place backend calls will go through
     roles.ts           the four stakeholder roles
+  i18n/                interface languages (English + Hinglish, Tanglish, …) — see its README
 ```

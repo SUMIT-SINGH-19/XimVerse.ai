@@ -13,6 +13,7 @@
  * recorded by the user (or demo actions) as shipment events.
  */
 
+import { formatDate } from "./format";
 import { MOCK_NOW } from "./import-requirements";
 import { assessShipment, type ComplianceIssue } from "./importer-compliance";
 import { customsCaseForShipment, type CustomsCaseView } from "./importer-customs";
@@ -367,7 +368,7 @@ export function trackingView(input: TrackingInput): TrackingView {
         type: "arrival-overdue",
         source: "schedule",
         title: `Arrival overdue by ${formatDayShift(schedule.overdueDays).replace("+", "")}`,
-        detail: `Latest ETA was ${schedule.current.eta}; no arrival has been recorded.`,
+        detail: `Latest ETA was ${formatDate(schedule.current.eta)}; no arrival has been recorded.`,
         action: "Confirm arrival or record a revised ETA",
         cta: { label: "Review Schedule", href: hrefs.schedule },
         resolvesWhen: "An arrival is recorded on the shipment, or a later ETA is recorded.",
@@ -377,7 +378,7 @@ export function trackingView(input: TrackingInput): TrackingView {
         type: "schedule-delay",
         source: "schedule",
         title: `ETA ${formatDayShift(schedule.etaDelayDays)} later than planned`,
-        detail: `Planned ETA ${schedule.baseline.eta}, latest ETA ${schedule.current.eta}.`,
+        detail: `Planned ETA ${formatDate(schedule.baseline.eta)}, latest ETA ${formatDate(schedule.current.eta)}.`,
         action: "Review updated ETA",
         cta: { label: "Review Schedule", href: hrefs.schedule },
         resolvesWhen: "The shipment arrives, or the ETA returns to the planned date.",
@@ -388,7 +389,7 @@ export function trackingView(input: TrackingInput): TrackingView {
         type: "schedule-changed",
         source: "schedule",
         title: `${last.field === "readyDate" ? "Cargo ready date" : last.field.toUpperCase()} changed ${formatDayShift(last.days)}`,
-        detail: `${last.from} → ${last.to}${last.reason ? ` · ${last.reason}` : ""}.`,
+        detail: `${formatDate(last.from)} → ${formatDate(last.to)}${last.reason ? ` · ${last.reason}` : ""}.`,
         action: "Review updated schedule",
         cta: { label: "Review Schedule", href: hrefs.schedule },
         resolvesWhen: "The shipment arrives.",

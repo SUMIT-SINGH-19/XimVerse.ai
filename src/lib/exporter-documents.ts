@@ -18,9 +18,9 @@
  */
 
 import { CERTIFICATIONS, REGISTRATIONS, VERIFICATION_STATUS_LABEL, type VerificationStatus } from "./exporter-company";
-import { COMMITMENT_LABEL, type CounterpartyAccess, type ExporterDeal } from "./exporter-deals";
+import { COMMITMENT_LABEL, SEEDED_DEALS, type CounterpartyAccess, type ExporterDeal } from "./exporter-deals";
 import { findOpportunity, shortCountry } from "./exporter-opportunities";
-import { complianceStatusText, DOCUMENT_STATUS_LABEL, isActiveOrder, type ExporterOrder, type OrderDocument, type OrderDocumentStatus, type OrderDocumentType, type OrderState } from "./exporter-orders";
+import { complianceStatusText, DOCUMENT_STATUS_LABEL, isActiveOrder, SEEDED_ORDERS, type ExporterOrder, type OrderDocument, type OrderDocumentStatus, type OrderDocumentType, type OrderState } from "./exporter-orders";
 import { DEMO_TODAY, daysBetween } from "./exporter-quotations";
 import {
   containerComplete,
@@ -33,6 +33,7 @@ import {
   isPreDeparture,
   orderStateWithShipments,
   score,
+  SEEDED_SHIPMENTS,
   SHIPPING_BILL_STEPS,
   shippingBillIndex,
   shippingBillPrerequisites,
@@ -506,6 +507,7 @@ function shipmentItems(sh: ExporterShipment, st: ShipmentState, order: ExporterO
     facts: [
       ["CHA", st.cha ?? "Not assigned"],
       ["Dossier", st.dossierShared ? "Shared" : "Not shared"],
+      ["Shipment customs readiness", `${score(customsReadiness(sh, st, os))}% (from the shipment's rules)`],
     ],
   });
 
@@ -726,13 +728,17 @@ export function documentActions(index: readonly DocumentItem[]): DocumentAction[
 }
 
 const joinAnd = (xs: readonly string[]) => (xs.length > 1 ? `${xs.slice(0, -1).join(", ")} and ${xs.at(-1)}` : (xs[0] ?? ""));
-const lower = (s: string) => s.charAt(0).toLowerCase() + s.slice(1);
+/** Lower-cases a leading common word; keeps acronyms (CHA, LEO) and document names as written. */
+const DOCUMENT_NAMES = /^(Shipping|Commercial|Packing|Certificate|Phytosanitary|Fumigation|Insurance|Inspection|Health|Bill|Air|Container &)/;
+const lower = (s: string) => (/^[A-Z]{2}/.test(s) || DOCUMENT_NAMES.test(s) ? s : s.charAt(0).toLowerCase() + s.slice(1));
+/** First three, then "and N more". */
+const someOf = (xs: readonly string[]) => joinAnd(xs.length > 3 ? [...xs.slice(0, 3), `${xs.length - 3} more`] : xs);
 
 export function documentInsights(index: readonly DocumentItem[]): string[] {
   const out: string[] = [];
   for (const sb of index.filter((d) => d.code === "SB" && d.blocking && d.blockedStep === "Ready for Filing").slice(0, 2)) {
     const failing = sb.blockers.filter((b) => !b.done).map((b) => lower(b.detail ?? b.label));
-    out.push(`${sb.ownerId} cannot move to Shipping Bill filing yet because ${joinAnd(failing)}.`);
+    out.push(`${sb.ownerId} cannot move to Shipping Bill filing yet because ${someOf(failing)}.`);
   }
   const attention = index.filter((d) => d.attention);
   if (attention.length) {
@@ -748,8 +754,8 @@ export function documentInsights(index: readonly DocumentItem[]): string[] {
   for (const d of index.filter((x) => x.ownerType === "order" && x.due)) byOrder.set(d.ownerId, [...(byOrder.get(d.ownerId) ?? []), d]);
   for (const [orderId, docs] of [...byOrder].slice(0, 3)) {
     const r = readinessOf(docs);
-    const open = docs.filter((d) => d.required && !d.complete).map((d) => lower(d.title.replace(/ Certificate$/, "")));
-    if (open.length) out.push(`${orderId} is ${r.percent}% document-ready; ${joinAnd(open)} remain${open.length === 1 ? "s" : ""} outstanding.`);
+    const open = docs.filter((d) => d.required && !d.complete).map((d) => d.title.replace(/ Certificate$/, ""));
+    if (open.length) out.push(`${orderId} is ${r.percent}% document-ready; ${someOf(open)} remain${open.length === 1 ? "s" : ""} outstanding.`);
   }
   for (const c of index.filter((d) => d.category === "certification" && d.status === "needs-review")) out.push(`${c.title} is still pending on the Company Profile.`);
   const dated = index.filter((d) => d.expiry).sort((a, b) => a.expiry!.days - b.expiry!.days);
@@ -768,3 +774,11 @@ export function documentInsights(index: readonly DocumentItem[]): string[] {
 
 /** Short date for tables. */
 export const documentDate = (iso: string) => formatShortDate(iso);
+
+// ---------------------------------------------------------------------------
+// Server-visible seeds (prerendered routes, dashboard)
+// ---------------------------------------------------------------------------
+
+
+export const SEEDED_DOCUMENT_INDEX = buildDocumentIndex({ orders: SEEDED_ORDERS, shipments: SEEDED_SHIPMENTS, deals: SEEDED_DEALS });
+export const SEEDED_DOCUMENT_IDS = SEEDED_DOCUMENT_INDEX.map((d) => d.id);

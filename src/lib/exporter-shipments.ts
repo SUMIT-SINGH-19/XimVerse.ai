@@ -626,7 +626,7 @@ export function shippingBillPrerequisites(sh: ExporterShipment, st: ShipmentStat
   }
   if (step === "ready-for-filing") {
     const missing = cargoMissing(st);
-    out.push({ key: "instructions", label: "Shipping Instructions ready", done: st.instructionsStatus === "ready", detail: st.instructionsStatus === "ready" ? undefined : `Shipping Instructions ${INSTRUCTIONS_STATUS_LABEL[st.instructionsStatus].toLowerCase()}`, fix: "Shipping Instructions must be ready" });
+    out.push({ key: "instructions", label: "Shipping Instructions ready", done: st.instructionsStatus === "ready", detail: st.instructionsStatus === "ready" ? undefined : `Shipping Instructions not ready (${INSTRUCTIONS_STATUS_LABEL[st.instructionsStatus].toLowerCase()})`, fix: "Shipping Instructions must be ready" });
     out.push({ key: "cargo", label: "Cargo details complete", done: missing.length === 0, detail: missing.length ? `${joinAnd(missing).replace(/^./, (c) => c.toUpperCase())} missing` : undefined, fix: "Complete the cargo details first" });
     if (usesContainers(sh.route)) out.push({ key: "containers", label: "Container details complete", done: containerComplete(st), detail: containerComplete(st) ? undefined : "Container type, count, numbers or seals missing", fix: "Complete the container details first" });
     out.push({ key: "invoice", label: "Commercial Invoice ready", done: docReady(os, "commercial-invoice"), detail: docReady(os, "commercial-invoice") ? undefined : "Commercial Invoice not ready on the order", fix: "Commercial Invoice and Packing List must be ready on the order" });

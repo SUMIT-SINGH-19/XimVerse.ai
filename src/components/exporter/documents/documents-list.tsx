@@ -79,10 +79,10 @@ export function DocumentsList() {
   const metrics = [
     { label: "Needs Attention", value: index.filter((d) => d.attention).length, alert: true },
     { label: "Expiring Soon", value: index.filter(isExpiringSoon).length, alert: true, hint: "Within 90 days" },
+    { label: "Blocked", value: index.filter((d) => d.blocking).length, alert: true },
     { label: "Total Documents", value: index.length },
     { label: "Preparing", value: index.filter((d) => d.status === "preparing").length },
     { label: "Ready / Approved", value: index.filter((d) => d.complete).length },
-    { label: "Blocked", value: index.filter((d) => d.blocking).length, alert: true },
     { label: "Shipment-Critical", value: index.filter((d) => d.ownerType === "shipment" && d.due && !d.complete).length, hint: "Open, due now" },
   ];
 
@@ -121,11 +121,12 @@ export function DocumentsList() {
       <PageHeader eyebrow="Operations" title="Documents" description="Track credentials, trade documents and shipment paperwork across your export operations." />
 
       <ul aria-label="Document summary" className="grid grid-cols-2 gap-3 sm:grid-cols-4 xl:grid-cols-7">
-        {metrics.map((m) => (
-          <li key={m.label} className="flex flex-col rounded-2xl border border-line bg-surface p-3 sm:p-4">
+        {metrics.map((m, i) => (
+          // Phones keep the four that call for action; the rest appear from sm up.
+          <li key={m.label} className={`${i >= 4 ? "hidden sm:flex" : "flex"} flex-col rounded-2xl border border-line bg-surface px-3 py-2.5 sm:p-4`}>
             <span className="text-xs font-medium text-ink-muted sm:text-sm">{m.label}</span>
-            <span className={`mt-1 text-xl font-bold tabular-nums sm:text-2xl ${m.alert && m.value > 0 ? "text-orange" : "text-ink"}`}>{m.value}</span>
-            {m.hint && <span className="text-[0.6875rem] text-ink-faint">{m.hint}</span>}
+            <span className={`mt-0.5 text-xl font-bold tabular-nums sm:text-2xl ${m.alert && m.value > 0 ? "text-orange" : "text-ink"}`}>{m.value}</span>
+            {m.hint && <span className="hidden text-[0.6875rem] text-ink-faint sm:block">{m.hint}</span>}
           </li>
         ))}
       </ul>

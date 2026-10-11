@@ -9,7 +9,8 @@
 
 import { BUYER_OPPORTUNITIES, isOpen, opportunitySummary, shortCountry } from "./exporter-opportunities";
 import { actionsRequired, isActiveOrder, readinessScore, SEEDED_ORDERS } from "./exporter-orders";
-import { isActiveShipment, orderStateWithShipments, SEEDED_SHIPMENTS, shipmentActions, shipmentState } from "./exporter-shipments";
+import { orderStateWithShipments, SEEDED_SHIPMENTS } from "./exporter-shipments";
+import { SEEDED_DOCUMENT_INDEX } from "./exporter-documents";
 import { buildPipeline, formatCompactMoney, pipelineSummary } from "./exporter-quotation-pipeline";
 import { dealStatus, dealValueMinor, isActiveDeal, SEEDED_DEALS } from "./exporter-deals";
 
@@ -81,11 +82,9 @@ export const ACTIVE_ORDERS: readonly ActiveOrder[] = SEEDED_ORDER_ROWS.map(({ o,
 
 const ORDERS_NEEDING_ACTION = SEEDED_ORDER_ROWS.filter(({ o, s }) => actionsRequired(o, s).length > 0).length;
 
-const SHIPMENTS_NEEDING_ACTION = SEEDED_SHIPMENTS.filter((sh) => {
-  const order = SEEDED_ORDERS.find((o) => o.id === sh.orderId);
-  const st = shipmentState(sh);
-  return order && isActiveShipment(st.status) && shipmentActions(sh, st, orderStateWithShipments(order, SEEDED_SHIPMENTS)).length > 0;
-}).length;
+// Document alerts come from the Documents Center's derived index (seeded owners only).
+const DOCS_NEEDING_ATTENTION = SEEDED_DOCUMENT_INDEX.filter((d) => d.attention && d.ownerType !== "company").length;
+const CREDENTIALS_PENDING = SEEDED_DOCUMENT_INDEX.filter((d) => d.ownerType === "company" && d.attention).length;
 
 // ---------------------------------------------------------------------------
 // KPIs, actions and assistant prompts
@@ -161,8 +160,11 @@ export interface ActionItem {
 export const ACTION_ITEMS: readonly ActionItem[] = [
   { key: "closing", count: 3, label: "opportunities closing within 24 hours", urgent: true, slug: "opportunities" },
   { key: "revisions", count: 2, label: "quotations awaiting revision", slug: "quotations" },
-  ...(SHIPMENTS_NEEDING_ACTION > 0
-    ? [{ key: "shipments", count: SHIPMENTS_NEEDING_ACTION, label: SHIPMENTS_NEEDING_ACTION === 1 ? "shipment needs action" : "shipments need action", urgent: true, slug: "shipments" }]
+  ...(DOCS_NEEDING_ATTENTION > 0
+    ? [{ key: "documents", count: DOCS_NEEDING_ATTENTION, label: DOCS_NEEDING_ATTENTION === 1 ? "document needs attention" : "documents need attention", urgent: true, slug: "documents" }]
+    : []),
+  ...(CREDENTIALS_PENDING > 0
+    ? [{ key: "credentials", count: CREDENTIALS_PENDING, label: CREDENTIALS_PENDING === 1 ? "company credential pending" : "company credentials pending", slug: "documents" }]
     : []),
   { key: "repricing", count: 1, label: "buyer requested updated pricing", slug: "quotations" },
 ];

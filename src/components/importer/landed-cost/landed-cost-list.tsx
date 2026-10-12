@@ -42,6 +42,8 @@ const selectClass =
 const supplierName = (s: LandedCostSheet) => findSupplier(s.order.supplierId)?.name ?? s.order.supplierId;
 const commercialValue = (s: LandedCostSheet) => s.result.commercial.amount ?? 0;
 const dutiesEntered = (s: LandedCostSheet) => Object.keys(s.stored.duties).length > 0 || s.stored.otherDuties.length > 0;
+/** No estimate until some planning input exists (the total would be the order value alone). */
+const estimate = (s: LandedCostSheet) => (s.result.status === "needs-input" ? undefined : s.result.total);
 const hsCode = (s: LandedCostSheet) => s.customsCase?.override.hsCode ?? s.shipment?.hsCode ?? s.order.terms.hsCode ?? "";
 
 export function LandedCostList() {
@@ -75,7 +77,7 @@ export function LandedCostList() {
         case "value":
           return a.order.terms.currency.localeCompare(b.order.terms.currency) || commercialValue(b) - commercialValue(a);
         case "landed":
-          return a.result.currency.localeCompare(b.result.currency) || (b.result.total ?? -1) - (a.result.total ?? -1) || a.order.id.localeCompare(b.order.id);
+          return a.result.currency.localeCompare(b.result.currency) || (estimate(b) ?? -1) - (estimate(a) ?? -1) || a.order.id.localeCompare(b.order.id);
         default:
           return b.updatedAt.localeCompare(a.updatedAt) || a.order.id.localeCompare(b.order.id);
       }
@@ -174,7 +176,7 @@ function Select({ label, value, onChange, options, any }: { label: string; value
   );
 }
 
-const landed = (s: LandedCostSheet) => (s.result.total !== undefined && s.result.status !== "needs-input" ? formatMoney(s.result.total, s.result.currency) : "Not calculated");
+const landed = (s: LandedCostSheet) => (estimate(s) !== undefined ? formatMoney(estimate(s)!, s.result.currency) : "Not calculated");
 const perUnit = (s: LandedCostSheet) => (s.result.perUnit && s.result.status !== "needs-input" ? `${formatMoney(s.result.perUnit.value, s.result.currency)} / ${s.order.terms.quantity.unit}` : "—");
 
 function Table({ sheets }: { sheets: LandedCostSheet[] }) {

@@ -308,7 +308,7 @@ export function MessagesList({ newFor }: { newFor?: string }) {
                       {r.s.unread > 0 && <span className="shrink-0 rounded-full bg-orange px-2 py-0.5 text-xs font-semibold text-on-brand">{r.s.unread} new</span>}
                     </span>
                     <span className="mt-1 text-xs text-ink-muted">{participants(r)}</span>
-                    <span className="mt-2 line-clamp-2 text-sm text-ink">{preview(r)}</span>
+                    <span className="mt-1.5 line-clamp-1 text-sm text-ink sm:line-clamp-2">{preview(r)}</span>
                     <span className="mt-2 flex flex-wrap items-center gap-2 text-xs text-ink-muted">
                       <PriorityPill priority={r.s.priority} />
                       <span>{REPLY_STATE_LABEL[r.s.replyState]}</span>

@@ -129,9 +129,15 @@ function Workspace({ sheet }: { sheet: LandedCostSheet }) {
 
       <section aria-labelledby="lc-total" className="rounded-2xl border border-line bg-surface px-5 py-5 sm:px-6">
         <p className="text-xs font-semibold uppercase tracking-[0.14em] text-ink-muted">Estimated Landed Cost · {r.currency}</p>
-        <h2 id="lc-total" className="mt-1 text-2xl font-semibold tabular-nums text-ink">{r.total !== undefined ? m(r.total) : "Not calculated"}</h2>
+        <h2 id="lc-total" className="mt-1 text-2xl font-semibold tabular-nums text-ink">{r.total !== undefined && r.status !== "needs-input" ? m(r.total) : "Not calculated"}</h2>
         <p className="mt-1 text-sm text-ink-muted" id="lc-per-unit">
-          {r.perUnit ? `${m(r.perUnit.value)} / ${t.quantity.unit} estimated per unit` : r.total === undefined ? "Resolve the blocking warning below to calculate." : "Per-unit cost needs a quantity above zero."}
+          {r.status === "needs-input"
+            ? "No cost assumptions entered yet. Add freight, duty or other costs below to start an estimate."
+            : r.perUnit
+              ? `${m(r.perUnit.value)} / ${t.quantity.unit} estimated per unit`
+              : r.total === undefined
+                ? "Resolve the blocking warning below to calculate."
+                : "Per-unit cost needs a quantity above zero."}
         </p>
         <p className="mt-1 text-xs text-ink-faint">Estimate status: {COST_STATUS_LABEL[r.status]}. An estimate is a planning value, not an official or verified figure.</p>
         <p role="status" aria-live="polite" className="mt-2 min-h-5 text-sm font-medium text-teal">{message}</p>

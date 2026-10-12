@@ -131,6 +131,7 @@ function Workspace({ sh }: { sh: Shipment }) {
           <Link href={`${importerHref("documents")}?shipment=${sh.id}`} className={textLink}>Manage Documents</Link>
           <Link href={importerHref(`compliance/${sh.id}`)} className={textLink}>View Compliance</Link>
           <Link href={importerHref(`tracking/${sh.id}`)} className={textLink}>View Tracking</Link>
+          <Link href={importerHref(`landed-cost/${sh.orderId}`)} className={textLink}>View Landed Cost</Link>
         </div>
       </div>
 

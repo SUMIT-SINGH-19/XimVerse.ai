@@ -11,6 +11,7 @@ import { BUYER_OPPORTUNITIES, isOpen, opportunitySummary, shortCountry } from ".
 import { actionsRequired, isActiveOrder, readinessScore, SEEDED_ORDERS } from "./exporter-orders";
 import { orderStateWithShipments, SEEDED_SHIPMENTS } from "./exporter-shipments";
 import { SEEDED_DOCUMENT_INDEX } from "./exporter-documents";
+import { SEEDED_THREADS, threadContext, threadState } from "./exporter-communications";
 import { buildPipeline, formatCompactMoney, pipelineSummary } from "./exporter-quotation-pipeline";
 import { dealStatus, dealValueMinor, isActiveDeal, SEEDED_DEALS } from "./exporter-deals";
 
@@ -84,6 +85,10 @@ const ORDERS_NEEDING_ACTION = SEEDED_ORDER_ROWS.filter(({ o, s }) => actionsRequ
 
 // Document alerts come from the Documents Center's derived index (seeded owners only).
 const DOCS_NEEDING_ATTENTION = SEEDED_DOCUMENT_INDEX.filter((d) => d.attention && d.ownerType !== "company").length;
+// Communication alerts from the seeded threads (browser replies don't reach the prerendered dashboard).
+const THREAD_STATES = SEEDED_THREADS.map((t) => ({ t, s: threadState(t, undefined, threadContext(t, SEEDED_SHIPMENTS)) }));
+const NEEDS_REPLY = THREAD_STATES.filter((x) => x.s.replyState === "needs-reply").length;
+const URGENT_QUERIES = THREAD_STATES.filter((x) => x.s.priority === "urgent" && x.s.status !== "resolved" && (x.t.subjectType === "document" || x.t.subjectType === "shipment")).length;
 const CREDENTIALS_PENDING = SEEDED_DOCUMENT_INDEX.filter((d) => d.ownerType === "company" && d.attention).length;
 
 // ---------------------------------------------------------------------------
@@ -163,6 +168,10 @@ export const ACTION_ITEMS: readonly ActionItem[] = [
   ...(DOCS_NEEDING_ATTENTION > 0
     ? [{ key: "documents", count: DOCS_NEEDING_ATTENTION, label: DOCS_NEEDING_ATTENTION === 1 ? "document needs attention" : "documents need attention", urgent: true, slug: "documents" }]
     : []),
+  ...(URGENT_QUERIES > 0
+    ? [{ key: "urgent-queries", count: URGENT_QUERIES, label: URGENT_QUERIES === 1 ? "urgent shipment / customs query" : "urgent shipment / customs queries", urgent: true, slug: "messages" }]
+    : []),
+  ...(NEEDS_REPLY > 0 ? [{ key: "needs-reply", count: NEEDS_REPLY, label: NEEDS_REPLY === 1 ? "message needs your reply" : "messages need your reply", slug: "messages" }] : []),
   ...(CREDENTIALS_PENDING > 0
     ? [{ key: "credentials", count: CREDENTIALS_PENDING, label: CREDENTIALS_PENDING === 1 ? "company credential pending" : "company credentials pending", slug: "documents" }]
     : []),

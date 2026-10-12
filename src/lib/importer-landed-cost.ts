@@ -646,10 +646,10 @@ export const MOCK_LANDED_COST_INPUTS: Readonly<Record<string, LandedCostInputs>>
   "ORD-2026-0001": {
     calculationCurrency: "INR",
     components: {
-      insurance: { inclusion: "additional", amount: 330, currency: "USD", source: "demo", note: DEMO_ASSUMPTION },
-      "destination-charges": { inclusion: "additional", amount: 45_000, currency: "INR", source: "demo", note: DEMO_ASSUMPTION },
-      cha: { inclusion: "additional", amount: 18_000, currency: "INR", source: "demo", note: DEMO_ASSUMPTION },
-      inland: { inclusion: "additional", amount: 60_000, currency: "INR", source: "demo", note: DEMO_ASSUMPTION },
+      insurance: { inclusion: "additional", amount: 330, currency: "USD", source: "demo" },
+      "destination-charges": { inclusion: "additional", amount: 45_000, currency: "INR", source: "demo" },
+      cha: { inclusion: "additional", amount: 18_000, currency: "INR", source: "demo" },
+      inland: { inclusion: "additional", amount: 60_000, currency: "INR", source: "demo" },
     },
     fxRates: [{ from: "USD", to: "INR", rate: 84.1, effectiveDate: "2026-08-10", sourceNote: DEMO_ASSUMPTION }],
     duties: {
@@ -665,9 +665,9 @@ export const MOCK_LANDED_COST_INPUTS: Readonly<Record<string, LandedCostInputs>>
   // FOB order costed in USD: freight and insurance additional; duties not entered yet.
   "ORD-2026-0002": {
     components: {
-      freight: { inclusion: "additional", amount: 9_500, currency: "USD", source: "demo", note: DEMO_ASSUMPTION },
-      insurance: { inclusion: "additional", amount: 400, currency: "USD", source: "demo", note: DEMO_ASSUMPTION },
-      "destination-charges": { inclusion: "additional", amount: 2_800, currency: "USD", source: "demo", note: DEMO_ASSUMPTION },
+      freight: { inclusion: "additional", amount: 9_500, currency: "USD", source: "demo" },
+      insurance: { inclusion: "additional", amount: 400, currency: "USD", source: "demo" },
+      "destination-charges": { inclusion: "additional", amount: 2_800, currency: "USD", source: "demo" },
     },
     fxRates: [],
     duties: {},

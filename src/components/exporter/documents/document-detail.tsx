@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowDown, ArrowLeft, ArrowRight, CircleCheck, CircleX, Info } from "lucide-react";
+import { ArrowDown, ArrowLeft, ArrowRight, CircleCheck, CircleX, Info, MessagesSquare } from "lucide-react";
 import { focusRing } from "@/components/workspace/styles";
 import { exporterHref } from "@/lib/exporter-nav";
 import { formatDate } from "@/lib/exporter-dashboard";
@@ -9,6 +9,8 @@ import { formatDateTime } from "@/lib/exporter-opportunities";
 import { DOCUMENT_STATUS_DISPLAY, OWNER_TYPE_LABEL, type DocumentItem, type DocumentSources } from "@/lib/exporter-documents";
 import { useIsClient } from "@/lib/exporter-quotation-store";
 import { DemoTag } from "@/components/exporter/shipments/shipment-ui";
+import { useCommunications } from "@/lib/exporter-communication-store";
+import { threadForSubject } from "@/lib/exporter-communications";
 import { criticality, DocumentStatusBadge, useDocumentIndex } from "./document-ui";
 
 function Card({ title, children, aside }: { title: string; children: React.ReactNode; aside?: React.ReactNode }) {
@@ -47,6 +49,8 @@ function chainFor(d: DocumentItem, src: DocumentSources) {
 
 function DocumentView({ d, src, index }: { d: DocumentItem; src: DocumentSources; index: readonly DocumentItem[] }) {
   const failing = d.blockers.filter((b) => !b.done);
+  // Communication lives in Messages; this only links to it.
+  const thread = threadForSubject(useCommunications().threads, d.id);
   const showBlockers = !d.complete && d.blockers.length > 0;
   const chain = chainFor(d, src);
   const dependsOn = d.code === "SB" ? index.filter((x) => x.ownerId === d.ownerId && ["SI", "CONTAINERS"].includes(x.code)).concat(index.filter((x) => x.ownerType === "order" && x.ownerId === d.orderId && ["INVOICE", "PACKING"].includes(x.code))) : [];
@@ -96,6 +100,12 @@ function DocumentView({ d, src, index }: { d: DocumentItem; src: DocumentSources
             </span>
             <ArrowRight className="size-4 shrink-0 text-ink-faint" aria-hidden />
           </Link>
+          {d.ownerType !== "company" && (
+            <Link href={thread ? exporterHref(`messages/${thread.id}`) : exporterHref(`messages?new=${d.id}`)} className={`inline-flex items-center gap-1.5 text-sm font-semibold text-teal hover:text-ink lg:col-start-2 ${focusRing}`}>
+              <MessagesSquare className="size-4" aria-hidden />
+              {thread ? `Discuss — ${thread.topic}` : "Open Query with Ximverse"}
+            </Link>
+          )}
         </div>
       </header>
 

@@ -123,6 +123,7 @@ function Workspace({ view }: { view: CustomsCaseView }) {
           <Link href={`${importerHref("documents")}?shipment=${sh.id}`} className={textLink}>View Documents</Link>
           <Link href={importerHref(`compliance/${sh.id}`)} className={textLink}>View Compliance</Link>
           <Link href={supplierHref(sh.supplierId)} className={textLink}>View Supplier</Link>
+          <Link href={importerHref(`landed-cost/${view.record.orderId}`)} className={textLink}>View Landed Cost</Link>
         </nav>
       </div>
 

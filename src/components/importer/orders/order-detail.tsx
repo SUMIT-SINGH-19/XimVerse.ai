@@ -102,6 +102,7 @@ function Workspace({ o }: { o: Order }) {
           <Link href={importerHref(`quotations/${o.quotationId}`)} className={textLink}>View Quotation</Link>
           <Link href={importerHref(`negotiations/${o.negotiationId}`)} className={textLink}>View Negotiation</Link>
           <Link href={supplierHref(o.supplierId)} className={textLink}>View Supplier</Link>
+          <Link href={importerHref(`landed-cost/${o.id}`)} className={textLink}>View Landed Cost</Link>
         </div>
       </div>
 

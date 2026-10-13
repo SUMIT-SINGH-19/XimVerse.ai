@@ -265,7 +265,7 @@ function orderSignals(src: SignalSources): NotificationSignal[] {
         severity: "attention",
         actionRequired: true,
         title: actions.length === 1 ? actions[0] : `${plural(actions.length, "order action")} outstanding`,
-        description: actions.join(" · "),
+        description: actions.length === 1 ? `Recorded on ${o.id} — resolve it on the order.` : actions.join(" · "),
         href: `/exporter/orders/${o.id}`,
         cta: "Open Order",
         occurredAt: s.updatedAt,
@@ -480,7 +480,7 @@ export function notificationInsights(list: readonly NotificationView[]): string[
   const out: string[] = [];
   const sorted = [...list].sort(attentionOrder);
   const top = sorted.find((s) => s.severity === "urgent");
-  if (top) out.push(`Your most urgent action is “${top.title}” on ${top.refs[0]}${top.timing ? `; ${top.timing.charAt(0).toLowerCase()}${top.timing.slice(1)}` : ""}.`);
+  if (top) out.push(`Your most urgent action is “${top.title}” on ${top.refs[0]}${top.timing ? `; ${/^[A-Z]{2}/.test(top.timing) ? top.timing : top.timing.charAt(0).toLowerCase() + top.timing.slice(1)}` : ""}.`);
   const sum = signalSummary(list);
   const parts = [sum.replies && plural(sum.replies, "conversation") + " waiting for a response", sum.blockers && plural(sum.blockers, "shipment/document blocker"), sum.commercial && plural(sum.commercial, "commercial action")].filter(Boolean) as string[];
   if (parts.length) out.push(`You have ${parts.length > 1 ? `${parts.slice(0, -1).join(", ")} and ${parts.at(-1)}` : parts[0]}.`);

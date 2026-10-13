@@ -11,7 +11,9 @@ import { BUYER_OPPORTUNITIES, isOpen, opportunitySummary, shortCountry } from ".
 import { actionsRequired, isActiveOrder, readinessScore, SEEDED_ORDERS } from "./exporter-orders";
 import { orderStateWithShipments, SEEDED_SHIPMENTS } from "./exporter-shipments";
 import { SEEDED_DOCUMENT_INDEX } from "./exporter-documents";
-import { SEEDED_THREADS, threadContext, threadState } from "./exporter-communications";
+import { SEEDED_THREADS } from "./exporter-communications";
+import { buildSignals } from "./exporter-notifications";
+import { SEEDED_NEGOTIATIONS } from "./exporter-negotiations";
 import { buildPipeline, formatCompactMoney, pipelineSummary } from "./exporter-quotation-pipeline";
 import { dealStatus, dealValueMinor, isActiveDeal, SEEDED_DEALS } from "./exporter-deals";
 
@@ -83,13 +85,21 @@ export const ACTIVE_ORDERS: readonly ActiveOrder[] = SEEDED_ORDER_ROWS.map(({ o,
 
 const ORDERS_NEEDING_ACTION = SEEDED_ORDER_ROWS.filter(({ o, s }) => actionsRequired(o, s).length > 0).length;
 
-// Document alerts come from the Documents Center's derived index (seeded owners only).
-const DOCS_NEEDING_ATTENTION = SEEDED_DOCUMENT_INDEX.filter((d) => d.attention && d.ownerType !== "company").length;
-// Communication alerts from the seeded threads (browser replies don't reach the prerendered dashboard).
-const THREAD_STATES = SEEDED_THREADS.map((t) => ({ t, s: threadState(t, undefined, threadContext(t, SEEDED_SHIPMENTS)) }));
-const NEEDS_REPLY = THREAD_STATES.filter((x) => x.s.replyState === "needs-reply").length;
-const URGENT_QUERIES = THREAD_STATES.filter((x) => x.s.priority === "urgent" && x.s.status !== "resolved" && (x.t.subjectType === "document" || x.t.subjectType === "shipment")).length;
-const CREDENTIALS_PENDING = SEEDED_DOCUMENT_INDEX.filter((d) => d.ownerType === "company" && d.attention).length;
+// Dashboard alerts are the Notifications signals over seeded sources — one
+// derived dataset, not a second one. Browser-created changes appear on the
+// Notifications page but not on this prerendered dashboard.
+const SEEDED_SIGNALS = buildSignals({
+  orders: SEEDED_ORDERS,
+  shipments: SEEDED_SHIPMENTS,
+  deals: SEEDED_DEALS,
+  negotiations: SEEDED_NEGOTIATIONS,
+  pipeline: SEEDED_ROWS,
+  threads: SEEDED_THREADS,
+  threadRead: {},
+  documents: SEEDED_DOCUMENT_INDEX,
+});
+const count = (pred: (s: (typeof SEEDED_SIGNALS)[number]) => boolean) => SEEDED_SIGNALS.filter(pred).length;
+const urgentAny = (pred: (s: (typeof SEEDED_SIGNALS)[number]) => boolean) => SEEDED_SIGNALS.some((s) => pred(s) && s.severity === "urgent");
 
 // ---------------------------------------------------------------------------
 // KPIs, actions and assistant prompts
@@ -162,20 +172,22 @@ export interface ActionItem {
   slug: string;
 }
 
+const isRfqDue = (s: (typeof SEEDED_SIGNALS)[number]) => s.sourceType === "rfq";
+const isNegotiation = (s: (typeof SEEDED_SIGNALS)[number]) => s.sourceType === "negotiation" && s.actionRequired;
+const isReply = (s: (typeof SEEDED_SIGNALS)[number]) => s.sourceType === "thread" && s.actionRequired;
+const isBlocker = (s: (typeof SEEDED_SIGNALS)[number]) => s.actionRequired && (s.category === "document" || s.category === "shipment");
+const isOrder = (s: (typeof SEEDED_SIGNALS)[number]) => s.actionRequired && s.category === "order";
+const isCredential = (s: (typeof SEEDED_SIGNALS)[number]) => s.category === "compliance";
+
+const item = (key: string, n: number, one: string, many: string, slug: string, urgent: boolean): ActionItem[] => (n > 0 ? [{ key, count: n, label: n === 1 ? one : many, slug, urgent }] : []);
+
 export const ACTION_ITEMS: readonly ActionItem[] = [
-  { key: "closing", count: 3, label: "opportunities closing within 24 hours", urgent: true, slug: "opportunities" },
-  { key: "revisions", count: 2, label: "quotations awaiting revision", slug: "quotations" },
-  ...(DOCS_NEEDING_ATTENTION > 0
-    ? [{ key: "documents", count: DOCS_NEEDING_ATTENTION, label: DOCS_NEEDING_ATTENTION === 1 ? "document needs attention" : "documents need attention", urgent: true, slug: "documents" }]
-    : []),
-  ...(URGENT_QUERIES > 0
-    ? [{ key: "urgent-queries", count: URGENT_QUERIES, label: URGENT_QUERIES === 1 ? "urgent shipment / customs query" : "urgent shipment / customs queries", urgent: true, slug: "messages" }]
-    : []),
-  ...(NEEDS_REPLY > 0 ? [{ key: "needs-reply", count: NEEDS_REPLY, label: NEEDS_REPLY === 1 ? "message needs your reply" : "messages need your reply", slug: "messages" }] : []),
-  ...(CREDENTIALS_PENDING > 0
-    ? [{ key: "credentials", count: CREDENTIALS_PENDING, label: CREDENTIALS_PENDING === 1 ? "company credential pending" : "company credentials pending", slug: "documents" }]
-    : []),
-  { key: "repricing", count: 1, label: "buyer requested updated pricing", slug: "quotations" },
+  ...item("closing", count(isRfqDue), "opportunity closing within 48 hours", "opportunities closing within 48 hours", "opportunities", urgentAny(isRfqDue)),
+  ...item("negotiations", count(isNegotiation), "negotiation needs your response", "negotiations need your response", "negotiations", false),
+  ...item("replies", count(isReply), "message needs your reply", "messages need your reply", "messages", urgentAny(isReply)),
+  ...item("blockers", count(isBlocker), "shipment / document blocker", "shipment / document blockers", "notifications", urgentAny(isBlocker)),
+  ...item("orders", count(isOrder), "order action outstanding", "order actions outstanding", "orders", false),
+  ...item("credentials", count(isCredential), "company credential pending", "company credentials pending", "documents", urgentAny(isCredential)),
 ];
 
 export const SUMIT_PROMPTS: readonly string[] = [

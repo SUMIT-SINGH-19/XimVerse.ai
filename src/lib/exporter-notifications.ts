@@ -32,7 +32,6 @@ import type { PipelineRow } from "./exporter-quotation-pipeline";
 import { DEMO_TODAY, daysBetween } from "./exporter-quotations";
 import {
   formatShortDate,
-  isActiveShipment,
   isArrivingSoon,
   isPreDeparture,
   orderStateWithShipments,
@@ -390,7 +389,6 @@ function shipmentSignals(src: SignalSources): NotificationSignal[] {
     if (st.status === "ready-to-ship") info("READY", "Ready for departure", `LEO received (demo) for ${sh.id}; awaiting departure.`, etdTiming(st.schedule.etd));
     if (isArrivingSoon(st) && st.schedule.eta) info("ARRIVING", "Arrival approaching", `${sh.id} is in transit to ${sh.route.portOfDischarge}.`, `ETA ${formatShortDate(st.schedule.eta)}`);
     if (st.status === "delivered" && st.milestones.delivered && daysBetween(st.milestones.delivered.slice(0, 10), DEMO_TODAY) <= 14) info("DELIVERED", "Shipment delivered", `${sh.id} was delivered to ${sh.route.finalDelivery}.`, `Delivered ${formatShortDate(st.milestones.delivered)}`);
-    void isActiveShipment;
   }
   return out;
 }

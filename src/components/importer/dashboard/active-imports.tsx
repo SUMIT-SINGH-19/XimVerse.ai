@@ -72,7 +72,7 @@ export function ActiveImports({
                     data-import={row.shipmentId}
                     className="group relative transition-colors focus-within:bg-teal-soft/50 hover:bg-teal-soft/50"
                   >
-                    <th scope="row" className="py-3.5 pl-6 pr-3 font-normal">
+                    <th scope="row" className="whitespace-nowrap py-3.5 pl-6 pr-3 font-normal">
                       {/* Stretched link: the whole row is the click target. */}
                       <Link
                         href={row.href}

@@ -164,14 +164,19 @@ export function buildAnalytics(src: AnalyticsSources, range: RangeKey = "all") {
   const negStatus = new Map(negotiations.map((n) => [n.id, negotiationStatus(n)]));
   const shipStates = new Map(src.shipments.map((s) => [s.id, shipmentState(s)]));
 
-  // ---- Funnel: unique RFQs at each stage ------------------------------------------------
-  const quotedRfqs = new Set(quotes.map((r) => r.rfqId));
-  const shortlistedRfqs = new Set(quotes.filter((r) => SHORTLISTED_OR_LATER.includes(r.status)).map((r) => r.rfqId));
-  const negotiatedRfqs = new Set(negotiations.map((n) => n.requirementId));
-  const agreedRfqs = new Set([...quotes.filter((r) => r.status === "accepted").map((r) => r.rfqId), ...negotiations.filter((n) => negStatus.get(n.id) === "agreed").map((n) => n.requirementId)]);
-  const dealRfqs = new Set(deals.map((d) => d.requirementId));
-  const orderRfqs = new Set(orders.map((o) => o.requirementId));
-  const deliveredRfqs = new Set(shipments.filter((s) => shipStates.get(s.id)?.status === "delivered").map((s) => s.requirementId));
+  // ---- Funnel: one cohort — opportunities shared in range — followed through every stage,
+  // whenever the later step happened. Unique RFQs per stage, so nothing counts twice.
+  const cohort = new Set(opportunities.map((o) => o.rfqId));
+  const inCohort = (ids: Iterable<string>) => new Set([...ids].filter((id) => cohort.has(id)));
+  const allQuotes = src.pipeline.filter((r) => r.kind === "quotation" && r.quotation && r.quotation.status !== "draft");
+  const allNegStatus = new Map(src.negotiations.map((n) => [n.id, negotiationStatus(n)]));
+  const quotedRfqs = inCohort(allQuotes.map((r) => r.rfqId));
+  const shortlistedRfqs = inCohort(allQuotes.filter((r) => SHORTLISTED_OR_LATER.includes(r.status)).map((r) => r.rfqId));
+  const negotiatedRfqs = inCohort(src.negotiations.map((n) => n.requirementId));
+  const agreedRfqs = inCohort([...allQuotes.filter((r) => r.status === "accepted").map((r) => r.rfqId), ...src.negotiations.filter((n) => allNegStatus.get(n.id) === "agreed").map((n) => n.requirementId)]);
+  const dealRfqs = inCohort(src.deals.map((d) => d.requirementId));
+  const orderRfqs = inCohort(src.orders.map((o) => o.requirementId));
+  const deliveredRfqs = inCohort(src.shipments.filter((s) => shipStates.get(s.id)?.status === "delivered").map((s) => s.requirementId));
   const funnel: FunnelStage[] = [
     { key: "opportunities", label: "Opportunities", count: opportunities.length, definition: "Buyer opportunities shared with you", href: "/exporter/opportunities" },
     { key: "quoted", label: "Quoted", count: quotedRfqs.size, definition: "Opportunities with at least one submitted quotation (drafts excluded)", href: "/exporter/quotations" },
@@ -312,7 +317,8 @@ export function buildAnalytics(src: AnalyticsSources, range: RangeKey = "all") {
   }
 
   // ---- Product and market performance ------------------------------------------------------------
-  const quoteByRfq = new Map(quotes.map((r) => [r.rfqId, r]));
+  // Product / market rows follow the same opportunity cohort as the funnel.
+  const quoteByRfq = new Map(allQuotes.map((r) => [r.rfqId, r]));
   const group = (keyOf: (o: BuyerOpportunity) => { key: string; label: string }): GroupRow[] => {
     const rows = new Map<string, GroupRow>();
     const get = (k: { key: string; label: string }) => {

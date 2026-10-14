@@ -196,14 +196,14 @@ export function AnalyticsWorkspace() {
         <Kpi label="On-Time Delivery" value={pct(r.shipments.onTimeDelivery)} hint={basis(r.shipments.onTimeDelivery, "data")} href="/exporter/shipments" />
       </ul>
 
-      <Section id="funnel" title="Commercial Funnel" note="Each stage counts unique opportunities (RFQs) — nothing is counted twice.">
+      <Section id="funnel" title="Commercial Funnel" note="Follows opportunities shared in the selected range through each stage. Each stage counts unique opportunities (RFQs) — nothing is counted twice.">
         <ol className="space-y-1.5">
           {r.funnel.map((s) => (
             <li key={s.key}>
               <Link href={s.href} title={s.definition} className={`grid grid-cols-[minmax(0,8.5rem)_1fr_auto] items-center gap-2 rounded text-sm hover:text-teal sm:grid-cols-[11rem_1fr_6rem] ${focusRing}`}>
                 <span className="truncate text-ink">{s.label}</span>
                 <span aria-hidden className="h-5 rounded bg-canvas ring-1 ring-inset ring-line"><span className="block h-5 rounded bg-teal/80" style={{ width: `${(s.count / funnelMax) * 100}%` }} /></span>
-                <span className="text-right tabular-nums"><span className="font-semibold text-ink">{s.count}</span>{s.key !== "opportunities" && funnelMax > 0 && <span className="ml-1 text-xs text-ink-muted">{Math.round((s.count / funnelMax) * 100)}%</span>}</span>
+                <span className="text-right tabular-nums"><span className="font-semibold text-ink">{s.count}</span>{s.key !== "opportunities" && funnelMax > 0 && <span className="text-xs text-ink-muted"> {Math.round((s.count / funnelMax) * 100)}%</span>}</span>
               </Link>
             </li>
           ))}

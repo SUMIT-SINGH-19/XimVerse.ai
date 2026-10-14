@@ -8,16 +8,17 @@
  */
 
 import { isActive, MOCK_NOW, type ImportRequirement } from "./import-requirements";
-import { assessShipment, type Readiness } from "./importer-compliance";
+import { assessShipment, READINESS_LABEL, type Readiness } from "./importer-compliance";
 import { CUSTOMS_CASE_STATUS_LABEL, customsActivity, customsCaseForShipment } from "./importer-customs";
 import { describeDocumentEvent } from "./importer-documents";
 import { COST_STATUS_LABEL } from "./importer-landed-cost";
+import { formatDate } from "./format";
 import { importerHref } from "./importer-nav";
-import { isActiveNegotiation, negotiationStatus } from "./importer-negotiations";
-import { isActiveOrder, ORDER_EVENT_LABEL, orderStatus } from "./importer-orders";
+import { isActiveNegotiation } from "./importer-negotiations";
+import { isActiveOrder, ORDER_EVENT_LABEL } from "./importer-orders";
 import { formatMoney, WORKSPACE_STATUS_LABEL, type PaymentObligation } from "./importer-payments";
 import { buildImporterReport, type ReportData } from "./importer-reports";
-import { shipmentState, type ShipmentEvent } from "./importer-shipments";
+import { shipmentState, type ShipmentEvent, type ShipmentStatus } from "./importer-shipments";
 import { compareAttention, EXCEPTION_SEVERITY_LABEL, SCHEDULE_STATUS_LABEL, type TrackingView } from "./importer-tracking";
 
 const DAY = 86_400_000;
@@ -92,7 +93,7 @@ export interface ActiveImportRow {
   supplier: string;
   product: string;
   route: { origin: string; destination: string };
-  stage: string;
+  stage: ShipmentStatus;
   eta: string;
   scheduleStatus: TrackingView["schedule"]["status"];
   scheduleLabel: string;
@@ -325,7 +326,7 @@ export function buildImporterDashboard(data: ReportData, opts: DashboardOptions 
         id: "documents",
         label: "Documents",
         state: !readiness ? "upcoming" : readiness === "ready" ? "complete" : "attention",
-        detail: !readiness ? "After shipment is created" : readiness === "ready" ? "Ready for current stage" : readiness === "blocked" ? "Blocked" : "Needs review",
+        detail: !readiness ? "After shipment is created" : READINESS_LABEL[readiness],
         href: shipment ? importerHref(`compliance/${shipment.id}`) : importerHref("documents"),
       },
       {
@@ -339,7 +340,7 @@ export function buildImporterDashboard(data: ReportData, opts: DashboardOptions 
         id: "delivery",
         label: "Delivery",
         state: after(["delivered"]) ? "complete" : after(["arrived", "customs"]) ? "current" : "upcoming",
-        detail: st ? (st.status === "delivered" ? "Delivered" : `ETA ${rep!.schedule.current.eta}`) : "—",
+        detail: st ? (st.status === "delivered" ? "Delivered" : `ETA ${formatDate(rep!.schedule.current.eta)}`) : "—",
         href: shipment ? trackingHref(shipment.id) : importerHref("tracking"),
       },
       {
@@ -402,7 +403,7 @@ export function buildImporterDashboard(data: ReportData, opts: DashboardOptions 
   return {
     asOf: latest && latest > today ? latest : today,
     summary: {
-      openRequirements: data.requirements.filter((r) => isActive(r) && r.status !== "supplier-selected").length,
+      openRequirements: data.requirements.filter(isActive).length,
       activeNegotiations: data.negotiations.filter(isActiveNegotiation).length,
       openOrders: data.orders.filter(isActiveOrder).length,
       activeShipments: active.length,
@@ -418,7 +419,3 @@ export function buildImporterDashboard(data: ReportData, opts: DashboardOptions 
     activity: activity.slice(0, opts.activityLimit ?? 8),
   };
 }
-
-/** Exposed for tests: the order in which a negotiation would count as active. */
-export const negotiationIsActive = (n: Parameters<typeof negotiationStatus>[0]) => isActiveNegotiation(n);
-export const orderIsOpen = (o: Parameters<typeof orderStatus>[0]) => isActiveOrder(o);

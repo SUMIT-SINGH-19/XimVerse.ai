@@ -1,87 +1,84 @@
-import { Boxes, CalendarClock, Stamp, TriangleAlert, type LucideIcon } from "lucide-react";
+"use client";
+
+import Link from "next/link";
+import { Boxes, ClipboardList, Handshake, PackageCheck, TriangleAlert, Wallet, type LucideIcon } from "lucide-react";
 import { formatDayMonth } from "@/lib/format";
 import {
-  activeImportCount,
-  arrivingWithin,
-  IMPORT_STAGES,
-  type ImporterDashboardData,
-} from "@/lib/importer-dashboard-data";
-import { getT } from "@/i18n/server";
-import type { Translate } from "@/i18n/translate";
+  ATTENTION_DEFINITION,
+  UPCOMING_PAYMENTS_DEFINITION,
+  type DashboardArrival,
+  type DashboardSummary,
+} from "@/lib/importer-dashboard";
+import { importerHref } from "@/lib/importer-nav";
+import { useT } from "@/i18n/client";
+import { focusRing } from "../styles";
 
 interface Metric {
+  id: string;
   label: string;
   value: number;
   hint: string;
+  href: string;
   icon: LucideIcon;
   attention?: boolean;
+  definition?: string;
 }
 
-function metricsFor(data: ImporterDashboardData, t: Translate): Metric[] {
-  const arriving = arrivingWithin(data, 7);
-  const stagesInUse = IMPORT_STAGES.filter((s) => s.id !== "delivered" && data.pipeline[s.id] > 0);
-  const highPriority = data.actions.filter((a) => a.priority === "high").length;
-
-  return [
+export function OperationalSummary({
+  summary,
+  arrivals,
+}: {
+  summary: DashboardSummary;
+  arrivals: readonly DashboardArrival[];
+}) {
+  const t = useT();
+  const next = arrivals[0];
+  const metrics: Metric[] = [
+    { id: "open-requirements", label: t("Open Requirements"), value: summary.openRequirements, hint: t("Submitted, not closed"), href: importerHref("rfqs"), icon: ClipboardList },
+    { id: "active-negotiations", label: t("Active Negotiations"), value: summary.activeNegotiations, hint: t("Awaiting agreement"), href: importerHref("negotiations"), icon: Handshake },
+    { id: "open-orders", label: t("Open Orders"), value: summary.openOrders, hint: t("Not yet completed"), href: importerHref("orders"), icon: PackageCheck },
     {
-      label: t("Active Imports"),
-      value: activeImportCount(data),
-      hint: t("Across {count} stages", { count: stagesInUse.length }),
+      id: "active-shipments",
+      label: t("Active Shipments"),
+      value: summary.activeShipments,
+      hint: next ? t("Next: {place}, {date}", { place: next.port, date: formatDayMonth(next.eta) }) : t("No arrivals in the next 14 days"),
+      href: importerHref("tracking"),
       icon: Boxes,
     },
-    {
-      label: t("Arriving This Week"),
-      value: arriving.length,
-      hint: arriving[0]
-        ? t("Next: {place}, {date}", { place: arriving[0].route.destination, date: formatDayMonth(arriving[0].eta) })
-        : t("Nothing due"),
-      icon: CalendarClock,
-    },
-    {
-      label: t("Customs Pending"),
-      value: data.pipeline.customs,
-      hint: t("Awaiting clearance"),
-      icon: Stamp,
-    },
-    {
-      label: t("Actions Required"),
-      value: data.actions.length,
-      hint: highPriority ? t("{count} high priority", { count: highPriority }) : t("None urgent"),
-      icon: TriangleAlert,
-      attention: data.actions.length > 0,
-    },
+    { id: "needs-attention", label: t("Needs Attention"), value: summary.needsAttention, hint: summary.needsAttention ? t("See Action Required") : t("Nothing urgent"), href: "#action-required", icon: TriangleAlert, attention: summary.needsAttention > 0, definition: ATTENTION_DEFINITION },
+    { id: "upcoming-payments", label: t("Upcoming Payments"), value: summary.upcomingPayments, hint: t("Due within 14 days"), href: importerHref("payments"), icon: Wallet, definition: UPCOMING_PAYMENTS_DEFINITION },
   ];
-}
-
-export async function OperationalSummary({ data }: { data: ImporterDashboardData }) {
-  const t = await getT();
 
   return (
     <section aria-label={t("Operational summary")}>
-      <dl className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        {metricsFor(data, t).map(({ label, value, hint, icon: Icon, attention }) => (
-          <div
-            key={label}
-            className="flex items-start gap-3 rounded-xl border border-line bg-surface px-4 py-3.5"
-          >
-            <span
-              aria-hidden
-              className={`hidden size-9 shrink-0 place-items-center rounded-lg sm:grid ${
-                attention ? "bg-orange-soft text-orange" : "bg-teal-soft text-teal"
-              }`}
+      <ul className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
+        {metrics.map(({ id, label, value, hint, href, icon: Icon, attention, definition }) => (
+          <li key={id} data-metric={id}>
+            <Link
+              href={href}
+              title={definition ? t(definition) : undefined}
+              className={`flex h-full items-start gap-3 rounded-xl border border-line bg-surface px-4 py-3.5 transition hover:border-teal/40 ${focusRing}`}
             >
-              <Icon className="size-4.5" />
-            </span>
-            <div className="flex min-w-0 flex-col">
-              <dt className="text-xs font-medium text-ink-muted">{label}</dt>
-              <dd className="order-first text-2xl font-semibold tabular-nums tracking-tight text-ink">
-                {value}
-              </dd>
-              <dd className="mt-0.5 truncate text-xs text-ink-faint">{hint}</dd>
-            </div>
-          </div>
+              <span
+                aria-hidden
+                className={`hidden size-9 shrink-0 place-items-center rounded-lg sm:grid ${
+                  attention ? "bg-orange-soft text-orange" : "bg-teal-soft text-teal"
+                }`}
+              >
+                <Icon className="size-4.5" />
+              </span>
+              <span className="flex min-w-0 flex-col">
+                <span data-value className="text-2xl font-semibold tabular-nums tracking-tight text-ink">
+                  {value}
+                </span>
+                <span className="text-xs font-medium text-ink-muted">{label}</span>
+                <span className="mt-0.5 truncate text-xs text-ink-faint">{hint}</span>
+                {definition && <span className="sr-only">{t(definition)}</span>}
+              </span>
+            </Link>
+          </li>
         ))}
-      </dl>
+      </ul>
     </section>
   );
 }

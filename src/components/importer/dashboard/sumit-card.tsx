@@ -6,11 +6,15 @@ import { useT } from "@/i18n/client";
 import { focusRing } from "../styles";
 
 const EXAMPLE_PROMPTS = [
-  "Which imports need my attention?",
-  "What documents are missing?",
-  "What's arriving this week?",
-  "Which shipments are waiting on customs?",
+  "What needs my attention today?",
+  "Which shipment is delayed?",
+  "Which customs case is blocked?",
+  "Which supplier payment is due next?",
+  "Which landed-cost estimate is incomplete?",
+  "Summarize my active imports.",
 ];
+
+export const SUMIT_DASHBOARD_MESSAGE = "SUMIT operational intelligence will be connected later.";
 
 /**
  * Entry point to SUMIT, the importer's assistant. UI only for now: nothing is
@@ -75,7 +79,7 @@ export function SumitCard({ className = "" }: { className?: string }) {
           </button>
         </div>
         <p role="status" className="mt-2 min-h-4 text-xs text-ink-muted">
-          {notice && t("SUMIT isn't connected yet — your question wasn't sent.")}
+          {notice && t(SUMIT_DASHBOARD_MESSAGE)}
         </p>
       </form>
 
@@ -86,7 +90,7 @@ export function SumitCard({ className = "" }: { className?: string }) {
               type="button"
               onClick={() => {
                 setQuestion(t(prompt));
-                setNotice(false);
+                setNotice(true);
                 inputRef.current?.focus();
               }}
               className={`rounded-full border border-line bg-surface px-3 py-1.5 text-left text-xs text-ink-muted transition hover:border-teal/40 hover:text-ink ${focusRing}`}

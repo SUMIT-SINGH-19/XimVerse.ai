@@ -1,7 +1,10 @@
 import { ArrowRight } from "lucide-react";
-import type { ImportStatus, TradeRoute } from "@/lib/importer-dashboard-data";
-import { IMPORT_STATUS_LABEL } from "@/lib/importer-dashboard-data";
 import { T } from "@/i18n/client";
+
+export interface TradeRoute {
+  origin: string;
+  destination: string;
+}
 
 /** A titled section of the dashboard. Translates its title and description. */
 export function Panel({
@@ -36,24 +39,6 @@ export function Panel({
       </div>
       {children}
     </section>
-  );
-}
-
-const STATUS_STYLE: Record<ImportStatus, string> = {
-  "action-required": "bg-orange-soft text-orange",
-  "pending-clarification": "border border-orange/35 text-orange",
-  "on-track": "bg-teal-soft text-teal",
-  "preparing-shipment": "border border-line text-ink-muted",
-};
-
-export function StatusBadge({ status }: { status: ImportStatus }) {
-  return (
-    <span
-      className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-full px-2.5 py-0.5 text-xs font-medium ${STATUS_STYLE[status]}`}
-    >
-      <span aria-hidden className="size-1.5 rounded-full bg-current" />
-      <T>{IMPORT_STATUS_LABEL[status]}</T>
-    </span>
   );
 }
 

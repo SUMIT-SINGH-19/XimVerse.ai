@@ -18,7 +18,7 @@ import { workspaceReadiness, type DocumentSources } from "./exporter-documents";
 import { dealStatus, dealValueMinor, type DealStatus, type ExporterDeal } from "./exporter-deals";
 import { negotiationStatus, offerValueMinor, yourCurrentOffer, type ExporterNegotiation, type ExporterNegotiationStatus } from "./exporter-negotiations";
 import { BUYER_OPPORTUNITIES, shortCountry, type BuyerOpportunity } from "./exporter-opportunities";
-import { actionsRequired, orderState, type ExporterOrder, type OrderStatus } from "./exporter-orders";
+import { actionsRequired, type ExporterOrder, type OrderStatus } from "./exporter-orders";
 import { EXPORTER_PRODUCTS } from "./exporter-products";
 import type { PipelineRow } from "./exporter-quotation-pipeline";
 import type { ExporterQuotationStatus } from "./exporter-quotations";
@@ -156,7 +156,6 @@ export interface GroupRow {
 export function buildAnalytics(src: AnalyticsSources, range: RangeKey = "all") {
   const start = rangeStart(range);
   const opportunities = (src.opportunities ?? BUYER_OPPORTUNITIES).filter((o) => inRange(o.sharedAt, start));
-  const oppIds = new Set(opportunities.map((o) => o.rfqId));
   const quotes = src.pipeline.filter((r) => r.kind === "quotation" && r.quotation && r.quotation.status !== "draft" && inRange(r.quotation.submittedAt ?? r.quotation.createdAt, start));
   const negotiations = src.negotiations.filter((n) => inRange(n.events[0]?.at, start));
   const deals = src.deals.filter((d) => inRange(d.createdAt, start));
@@ -348,7 +347,8 @@ export function buildAnalytics(src: AnalyticsSources, range: RangeKey = "all") {
   };
   const products = group((o) => ({ key: o.match.matchedProductId, label: productName(o.match.matchedProductId, o.product.name) }));
   const markets = group((o) => ({ key: o.delivery.destinationCountry, label: shortCountry(o.delivery.destinationCountry) }));
-  const destinations = [...countBy(opportunities.map((o) => `${shortCountry(o.delivery.destinationCountry)} → ${o.delivery.destinationLocation}`)) as unknown as Record<string, number> ? Object.entries(countBy(opportunities.map((o) => `${shortCountry(o.delivery.destinationCountry)} → ${o.delivery.destinationLocation}`))) : []].sort((a, b) => b[1] - a[1]);
+  // Market (country) and destination (port / location) stay separate dimensions.
+  const destinations = Object.entries(countBy(opportunities.map((o) => `${shortCountry(o.delivery.destinationCountry)} → ${o.delivery.destinationLocation}`))).sort((a, b) => b[1] - a[1]);
 
   // ---- Match score ----------------------------------------------------------------------------------
   const bands = [

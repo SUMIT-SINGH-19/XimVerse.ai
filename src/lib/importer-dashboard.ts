@@ -105,8 +105,9 @@ export interface ActiveImportRow {
 export interface DashboardArrival {
   shipmentId: string;
   supplier: string;
+  /** Port of loading → port of discharge. */
+  origin: string;
   port: string;
-  destination: string;
   eta: string;
   daysRemaining: number;
   scheduleLabel: string;
@@ -209,7 +210,8 @@ export function buildImporterDashboard(data: ReportData, opts: DashboardOptions 
     for (const e of t.open) {
       if (blockedShipments.has(t.shipment.id) && COMPLIANCE_TYPES.includes(e.type)) continue;
       let priority: number;
-      let source: ActionSource = "Tracking";
+      // The exception's owning feature labels the action at any severity.
+      let source: ActionSource = e.source === "customs" ? "Customs" : e.source === "documents" ? "Documents" : e.source === "compliance" ? "Compliance" : "Tracking";
       if (e.severity === "critical") priority = 1;
       else if (e.type === "customs-clarification-open") [priority, source] = [3, "Customs"];
       else if (e.type === "customs-handoff-stale") [priority, source] = [7, "Customs"];
@@ -291,8 +293,8 @@ export function buildImporterDashboard(data: ReportData, opts: DashboardOptions 
     .map(({ t, days }) => ({
       shipmentId: t.shipment.id,
       supplier: t.supplierName,
+      origin: t.shipment.route.portOfLoading,
       port: t.shipment.route.portOfDischarge,
-      destination: t.shipment.route.finalDelivery,
       eta: t.schedule.current.eta,
       daysRemaining: days,
       scheduleLabel: SCHEDULE_STATUS_LABEL[t.schedule.status],

@@ -42,7 +42,7 @@ export function UpcomingArrivals({
                   </time>
                   <span className="min-w-0 flex-1">
                     <span className="flex items-start justify-between gap-2">
-                      <RouteLabel route={{ origin: a.port, destination: a.destination }} className="min-w-0 text-sm font-semibold text-ink" />
+                      <RouteLabel route={{ origin: a.origin, destination: a.port }} className="min-w-0 text-sm font-semibold text-ink" />
                       <span className="shrink-0 text-xs text-ink-faint">{formatDaysAhead(a.daysRemaining, t)}</span>
                     </span>
                     <span className="mt-0.5 block truncate text-xs text-ink-muted">

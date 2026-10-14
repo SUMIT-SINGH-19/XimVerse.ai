@@ -35,7 +35,7 @@ export function ImporterDashboard() {
           <UpcomingArrivals arrivals={data.arrivals} />
           <ComplianceHealth health={data.health} />
         </div>
-        <SumitCard className="xl:col-start-1 xl:row-start-4" />
+        <SumitCard className="self-start xl:col-start-1 xl:row-start-4" />
         <RecentActivity events={data.activity} asOf={data.asOf} className="xl:col-start-2 xl:row-start-4" />
       </div>
     </div>
